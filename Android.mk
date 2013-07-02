@@ -12,6 +12,7 @@ LOCAL_SRC_FILES := \
 	CameraDriver.cpp \
 	DebugFrameRate.cpp \
 	Callbacks.cpp \
+	CallbacksThread.cpp \
 	CameraHAL.cpp \
 	ColorConverter.cpp \
 	EXIFFields.cpp \

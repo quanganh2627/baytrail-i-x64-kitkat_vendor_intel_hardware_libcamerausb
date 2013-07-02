@@ -25,6 +25,7 @@
 #include "PreviewThread.h"
 #include "PictureThread.h"
 #include "VideoThread.h"
+#include "CallbacksThread.h"
 #include "PipeThread.h"
 #include "CameraCommon.h"
 #include "IFaceDetectionListener.h"
@@ -319,6 +320,7 @@ private:
     State mState;
     bool mThreadRunning;
     Callbacks *mCallbacks;
+    sp<CallbacksThread> mCallbacksThread;
 
     CameraBuffer *mConversionBuffers;
     int mNumBuffers;

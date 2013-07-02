@@ -46,6 +46,7 @@ ControlThread::ControlThread(int cameraId) :
     ,mState(STATE_STOPPED)
     ,mThreadRunning(false)
     ,mCallbacks(Callbacks::getInstance())
+    ,mCallbacksThread(CallbacksThread::getInstance())
     ,mNumBuffers(mDriver->getNumBuffers())
     ,m_pFaceDetector(0)
     ,mFaceDetectionActive(false)
@@ -76,6 +77,10 @@ ControlThread::ControlThread(int cameraId) :
     if (status != NO_ERROR) {
         ALOGW("Error starting pipe thread!");
     }
+    status = mCallbacksThread->run("CamHAL_CALLBACK");
+    if (status != NO_ERROR) {
+        LOGW("Error starting callbacks thread!");
+    }
     m_pFaceDetector=FaceDetectorFactory::createDetector(mCallbacks);
     if (m_pFaceDetector != 0){
         mParameters.set(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW,
@@ -100,6 +105,9 @@ ControlThread::~ControlThread()
 
     mPipeThread->requestExitAndWait();
     mPipeThread.clear();
+
+    mCallbacksThread->requestExitAndWait();
+    mCallbacksThread.clear();
 
     if (mDriver != NULL) {
         delete mDriver;
@@ -944,7 +952,7 @@ status_t ControlThread::handleMessageTakePicture()
             postviewBuffer->mType = BUFFER_TYPE_THUMBNAIL;
         }
 
-        mCallbacks->shutterSound();
+        mCallbacksThread->shutterSound();
 
         if (mThumbSupported && postviewBuffer != NULL) {
             status = mPictureThread->encode(snapshotBuffer, postviewBuffer);
