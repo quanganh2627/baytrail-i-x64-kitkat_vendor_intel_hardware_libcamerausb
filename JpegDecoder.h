@@ -18,6 +18,7 @@
 #define _JPEGDECODER_H
 
 #include <va/va.h>
+#include <va/va_dec_jpeg.h>
 #ifdef __ANDROID__
 # include <va/va_android.h>
 #else
