@@ -19,6 +19,7 @@
 #include <linux/videodev2.h>
 #include <stdio.h>
 #include "CameraBuffer.h"
+#include "IntelMetadataBuffer.h"
 
 //This file define the general configuration for the camera driver
 

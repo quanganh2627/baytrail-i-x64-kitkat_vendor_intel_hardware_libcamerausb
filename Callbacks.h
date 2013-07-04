@@ -60,6 +60,8 @@ public:
     camera_memory_t* allocateMemory(int size);
     virtual void facesDetected(camera_frame_metadata_t &face_metadata, CameraBuffer* buffer);
 
+    void storeMetaDataInBuffers(bool enabled);
+
 private:
     camera_notify_callback mNotifyCB;
     camera_data_callback mDataCB;
@@ -68,6 +70,7 @@ private:
     void *mUserToken;
     uint32_t mMessageFlags;
     camera_memory_t* mDummyByte;
+    bool mStoreMetaDataInBuffers;
 };
 
 };

@@ -251,7 +251,7 @@ void NV12ToNV21(int width, int height, void *src, void *dst)
     }
 }
 
-void YV16ToYUYV(int width, int height, void *src, void *dst)
+void YU16ToYUYV(int width, int height, void *src, void *dst)
 {
     int planeSizeY = width * height;
 int planeSizeUV = planeSizeY / 2;
@@ -270,8 +270,7 @@ int planeSizeUV = planeSizeY / 2;
     }
 }
 
-// it really is convert the YU16 to YV12, it will be corrected at last
-void YV16ToYV12(int width, int height, void *src, void *dst)
+void YU16ToYV12(int width, int height, void *src, void *dst)
 {
     int planeSizeY = width * height;
     int planeSizeU = planeSizeY / 2;
@@ -308,6 +307,32 @@ void YV16ToYV12(int width, int height, void *src, void *dst)
     }
 }
 
+void YU16ToNV12(int width, int height, void *src, void *dst)
+{
+    int planeSizeY = width * height;
+    int planeSizeU = planeSizeY / 2;
+    int i = 0;
+    int j = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrU = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrV = (unsigned char *) srcPtrU + planeSizeU;
+    unsigned char *dstPtr = (unsigned char *) dst;
+
+    // copy the entire Y plane
+    memcpy(dstPtr, srcPtr, planeSizeY);
+    dstPtr += planeSizeY;
+
+    // deinterlace the UV data
+    int vertical = height / 2;
+    int horizontal = width / 2;
+    for(i = 0; i < vertical; i++) {
+        for (j = 0; j < horizontal; j++) {
+            *dstPtr++ = srcPtrU[2 * i * horizontal + j];
+            *dstPtr++ = srcPtrV[2 * i * horizontal + j];
+        }
+    }
+}
+
 // covert NV12 (Y plane, interlaced UV bytes) to
 // YV12 (Y plane, V plane, U plane)
 void NV12ToYV12(int width, int height, void *src, void *dst)
@@ -331,6 +356,29 @@ void NV12ToYV12(int width, int height, void *src, void *dst)
         *dstPtrU++ = srcPtr[i];
     }
 }
+
+void YV12ToNV12(int width, int height, void *src, void *dst)
+{
+    int planeSizeY = width * height;
+    int planeSizeV = planeSizeY / 4;
+    int newPlaneSizeUV = planeSizeY / 2;
+    int i = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrV = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrU = (unsigned char *) srcPtrV + planeSizeV;
+    unsigned char * dstPtr = (unsigned char *) dst;
+
+    // copy the entire Y plane
+    memcpy(dstPtr, srcPtr, planeSizeY);
+    dstPtr += planeSizeY;
+
+    // deinterlace the UV data
+    for(i = 0; i < planeSizeV; i++) {
+        *dstPtr++ = srcPtrU[i];
+        *dstPtr++ = srcPtrV[i];
+    }
+}
+
 
 static status_t colorConvertYUYV(int dstFormat, int width, int height, void *src, void *dst)
 {

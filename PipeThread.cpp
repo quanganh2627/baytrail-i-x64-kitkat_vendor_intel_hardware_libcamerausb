@@ -139,17 +139,21 @@ status_t PipeThread::handleMessagePreviewVideo(MessagePreviewVideo *msg)
 {
     LOG2("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
-
+#if 0
     status = colorConvert(mInputFormat, mOutputFormat, mWidth, mHeight,
             msg->input->getData(), msg->output->getData());
+#else
+    YU16ToNV12(mWidth, mHeight, msg->input->getData(), msg->output->getData());
+//    memcpy(msg->output->getData(), msg->input->getData(), mWidth*mHeight*3/2);
+#endif
     if (status == NO_ERROR) {
         CameraBuffer *previewIn = msg->input;
-        CameraBuffer *previewOut = msg->output;
+        CameraBuffer *previewOut = NULL;//msg->output;
         CameraBuffer *video = msg->output;
 
         status = mPreviewThread->preview(previewIn, previewOut);
         if (status == NO_ERROR) {
-            status = mVideoThread->video(previewIn, msg->timestamp);
+            status = mVideoThread->video(video, msg->timestamp);
             if (status != NO_ERROR) {
                 ALOGE("failed to send preview buffer");
             }

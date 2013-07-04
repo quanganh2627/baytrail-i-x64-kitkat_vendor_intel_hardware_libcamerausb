@@ -25,8 +25,10 @@ status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void 
 
 const char *cameraParametersFormat(int v4l2Format);
 int V4L2Format(const char *cameraParamsFormat);
-void YV16ToYV12(int width, int height, void *src, void *dst);
-void YV16ToYUYV(int width, int height, void *src, void *dst);
+void YU16ToYV12(int width, int height, void *src, void *dst);
+void YU16ToNV12(int width, int height, void *src, void *dst);
+void YU16ToYUYV(int width, int height, void *src, void *dst);
+void YV12ToNV12(int width, int height, void *src, void *dst);
 
 }; // namespace android
 

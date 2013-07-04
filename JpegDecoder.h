@@ -51,7 +51,7 @@ private:
     int get16();
     void skip(int n);
 
-    int dumpYV16(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst);
+    int dumpYU16(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst);
     int dumpYV12(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst);
 
 

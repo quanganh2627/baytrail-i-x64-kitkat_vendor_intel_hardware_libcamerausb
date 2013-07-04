@@ -165,7 +165,7 @@ private:
     };
 
     struct MessageStoreMetaData {
-        int enable;
+        bool enable;
     };
 
     // union of all message data
@@ -303,6 +303,12 @@ private:
         return ret;
     }
 
+#ifdef ENABLE_INTEL_METABUFFER
+            void initMetaDataBuf(IntelMetadataBuffer* metaDatabuf);
+#endif
+        status_t allocateMetaDataBuffers();
+        void freeMetaDataBuffers();
+
 // inherited from Thread
 private:
     virtual bool threadLoop();
@@ -334,7 +340,7 @@ private:
 
     CameraBuffer* mLastRecordingBuff;
     int mCameraFormat;
-    int mStoreMetaDataInVideoBuffers;
+    bool mStoreMetaDataInVideoBuffers;
 
 
 }; // class ControlThread

@@ -407,7 +407,7 @@ bool JpegDecoder::decode()
     void * surface_p = NULL;
     VACALL(vaMapBuffer(mDpy, mImg.buf, &surface_p));
 //    LOGE("@%s, liang, line:%d, surface_p:0x%x!!!!!!!!", __FUNCTION__, __LINE__, (int)surface_p);
-    OutSize = dumpYV16(mImg, surface_p, mWidth, mHeight, mOutBuf);
+    OutSize = dumpYU16(mImg, surface_p, mWidth, mHeight, mOutBuf);
 
     VACALL(vaUnmapBuffer(mDpy, mImg.buf));
     VACALL(vaDestroyImage(mDpy, mImg.image_id));
@@ -473,7 +473,7 @@ int JpegDecoder::dumpYV12(VAImage va_image, void *pImage_Src, int actW, int actH
 // the output is YV16
 // the input is YUV422H MJPEG
 // the really format is YU16, it will be corrected at last time
-int JpegDecoder::dumpYV16(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst)
+int JpegDecoder::dumpYU16(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst)
 {
     int num_bytes, nWidth, nHeight, nAWidth, nAHeight;
     int y_bytes, u_bytes, v_bytes;

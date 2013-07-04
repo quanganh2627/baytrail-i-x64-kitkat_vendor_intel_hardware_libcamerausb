@@ -638,6 +638,7 @@ void CameraDriver::closeDevice()
 
     mCameraSensor[mCameraId]->fd = -1;
 }
+
 CameraBuffer* CameraDriver::findBuffer(void* findMe) const
 {
 
@@ -876,7 +877,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **buff, nsecs_t *timestamp, bo
 //            LOGE("@%s, liang, line:%d, forJpeg is true,w:%d,h:%d, size:%d", __FUNCTION__, __LINE__, mConfig.preview.width, mConfig.preview.height, mJpegDecoder->dataSize());
             void * p = malloc(mJpegDecoder->dataSize());
 //            write_image(mJpegDecoder->data(), mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "YV16.yv16");
-            YV16ToYUYV(mConfig.preview.width, mConfig.preview.height, mJpegDecoder->data(), p);
+            YU16ToYUYV(mConfig.preview.width, mConfig.preview.height, mJpegDecoder->data(), p);
 //            write_image(p, mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "YUYV.yuy");
 //            memcpy(camBuff->getData(), mJpegDecoder->data(), mJpegDecoder->dataSize());
             memcpy(camBuff->getData(), p, mJpegDecoder->dataSize());

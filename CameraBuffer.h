@@ -73,6 +73,8 @@ public:
      */
     camera_memory_t* getCameraMem();
 
+    /*!< Pointer to the memory allocated by callback, used to store metadata info for recording */
+    camera_memory_t *metadata_buff;
 
     /**
      * Processors of a buffer should  decrement reader count

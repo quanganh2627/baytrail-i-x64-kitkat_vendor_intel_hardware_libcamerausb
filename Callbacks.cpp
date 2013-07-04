@@ -32,6 +32,7 @@ Callbacks::Callbacks() :
     ,mUserToken(NULL)
     ,mMessageFlags(0)
     ,mDummyByte(NULL)
+    ,mStoreMetaDataInBuffers(false)
 {
     LOG1("@%s", __FUNCTION__);
 }
@@ -94,12 +95,20 @@ void Callbacks::videoFrameDone(CameraBuffer *buff, nsecs_t timestamp)
 {
     LOG2("@%s", __FUNCTION__);
     if ((mMessageFlags & CAMERA_MSG_VIDEO_FRAME) && mDataCBTimestamp != NULL) {
-        LOG2("Sending message: CAMERA_MSG_VIDEO_FRAME, buff id = %d", buff->getID());
         buff->incrementProcessor();
-        mDataCBTimestamp(timestamp, CAMERA_MSG_VIDEO_FRAME, buff->getCameraMem(), 0, mUserToken);
+        camera_memory_t *p = mStoreMetaDataInBuffers ? buff->metadata_buff : buff->getCameraMem();
+        LOG2("@%s, send recording buff:0x%p", __FUNCTION__, p);
+        mDataCBTimestamp(timestamp, CAMERA_MSG_VIDEO_FRAME, p, 0, mUserToken);
         //decrement will be done when buffer is released by client in ControlThread
     }
 }
+
+void Callbacks::storeMetaDataInBuffers(bool enabled)
+{
+    LOG1("@%s", __FUNCTION__);
+    mStoreMetaDataInBuffers = enabled;
+}
+
 void Callbacks::compressedRawFrameDone(CameraBuffer *buff)
 {
     LOG1("@%s", __FUNCTION__);

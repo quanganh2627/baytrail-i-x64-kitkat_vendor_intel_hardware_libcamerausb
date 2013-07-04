@@ -147,8 +147,8 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
                     msg->inputBuff->getData(), dst);
 #else
             // temp code
-            YV16ToYV12(mPreviewWidth, mPreviewHeight, msg->inputBuff->getData(), dst);
-//            memcpy(dst, msg->inputBuff->getData(), mPreviewWidth*mPreviewHeight*3/2);
+            YU16ToYV12(mPreviewWidth, mPreviewHeight, msg->inputBuff->getData(), dst);
+//            memcpy(msg->inputBuff->getData(), dst, mPreviewWidth*mPreviewHeight*3/2);
 #endif
             if ((err = mPreviewWindow->enqueue_buffer(mPreviewWindow, buf)) != 0) {
                 ALOGE("Surface::queueBuffer returned error %d", err);
@@ -161,9 +161,11 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
     mDebugFPS->update(); // update fps counter
 exit:
 
-    mCallbacks->previewFrameDone(msg->outputBuff);
+    if (msg->outputBuff)
+        mCallbacks->previewFrameDone(msg->outputBuff);
     msg->inputBuff->decrementProccessor();
-    msg->outputBuff->decrementProccessor();
+    if (msg->outputBuff)
+        msg->outputBuff->decrementProccessor();
     return status;
 }
 

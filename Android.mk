@@ -3,6 +3,10 @@ ifeq ($(USE_CAMERA_USB), true)
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
+ifeq ($(USE_INTEL_METABUFFER),true)
+LOCAL_CFLAGS += -DENABLE_INTEL_METABUFFER
+endif
+
 LOCAL_SRC_FILES := \
 	ControlThread.cpp \
 	PreviewThread.cpp \
@@ -33,6 +37,7 @@ LOCAL_C_INCLUDES += \
 	external/skia/include/images \
 	$(TARGET_OUT_HEADERS)/libdrm \
 	$(TARGET_OUT_HEADERS)/libmix_videoencoder \
+	hardware/intel/PRIVATE/libmix/videoencoder \
 	vendor/intel/hardware/libva \
 	bionic \
 	external/stlport/stlport \
@@ -51,6 +56,11 @@ LOCAL_SHARED_LIBRARIES := \
 	libstlport \
 	libva-android \
 	libva \
+
+ifeq ($(USE_INTEL_METABUFFER),true)
+LOCAL_SHARED_LIBRARIES += \
+        libintelmetadatabuffer
+endif
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE := camera.$(TARGET_DEVICE)

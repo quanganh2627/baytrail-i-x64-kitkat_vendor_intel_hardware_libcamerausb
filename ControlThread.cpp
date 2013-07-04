@@ -53,7 +53,7 @@ ControlThread::ControlThread(int cameraId) :
     ,mThumbSupported(false)
     ,mLastRecordingBuff(0)
     ,mCameraFormat(mDriver->getFormat())
-    ,mStoreMetaDataInVideoBuffers(0)
+    ,mStoreMetaDataInVideoBuffers(true)
 {
     LOG1("@%s: cameraId = %d", __FUNCTION__, cameraId);
 
@@ -616,6 +616,105 @@ status_t ControlThread::handleMessageExit()
     return NO_ERROR;
 }
 
+#ifdef ENABLE_INTEL_METABUFFER
+void ControlThread::initMetaDataBuf(IntelMetadataBuffer* metaDatabuf)
+{
+    int width, height;
+    mParameters.getVideoSize(&width, &height);
+
+    ValueInfo* vinfo = new ValueInfo;
+    // Video buffers actually use cached memory,
+    // even though uncached memory was requested
+    vinfo->mode = MEM_MODE_MALLOC;
+    vinfo->handle = 0;
+    vinfo->width = width;
+    vinfo->height = height;
+    vinfo->size = frameSize(V4L2_PIX_FMT_NV12, width, height);
+    //stride need to fill
+    vinfo->lumaStride = width;
+    vinfo->chromStride = width;
+    LOG1("@%s weight:%d  height:%d size:%d stride:%d chromStride:%d", __FUNCTION__, vinfo->width,
+          vinfo->height, vinfo->size, vinfo->lumaStride, vinfo->chromStride);
+    vinfo->format = STRING_TO_FOURCC("NV12");
+    LOG1("@%s format:%d  V4L2_PIX_FMT_NV12:%d", __FUNCTION__, vinfo->format, V4L2_PIX_FMT_NV12);
+    vinfo->s3dformat = 0xFFFFFFFF;
+    metaDatabuf->SetValueInfo(vinfo);
+    delete vinfo;
+    vinfo = NULL;
+}
+#endif
+
+status_t ControlThread::allocateMetaDataBuffers()
+{
+    LOG1("@%s", __FUNCTION__);
+
+    status_t status = NO_ERROR;
+#ifdef ENABLE_INTEL_METABUFFER
+    uint8_t* meta_data_prt;
+    uint32_t meta_data_size;
+    IntelMetadataBuffer* metaDataBuf = NULL;
+    CameraBuffer *camBuf = NULL;
+
+    if (NULL == mConversionBuffers) {
+        ALOGE("@%s, the allocateBuffers isn't called", __FUNCTION__);
+        return UNKNOWN_ERROR;
+    }
+
+    for (int i = 0; i < mNumBuffers; i++) {
+        camBuf = &mConversionBuffers[i];
+        metaDataBuf = new IntelMetadataBuffer();
+        if(metaDataBuf) {
+            initMetaDataBuf(metaDataBuf);
+            metaDataBuf->SetValue((uint32_t)camBuf->getData());
+            metaDataBuf->Serialize(meta_data_prt, meta_data_size);
+            camBuf->metadata_buff = NULL;
+            camBuf->metadata_buff = mCallbacks->allocateMemory(meta_data_size);
+            LOG1("@%s allocate metadata buffer[%d]  buff=%p size=%d, camBuf->metadata_buff:%p", __FUNCTION__,
+                i, camBuf->metadata_buff->data,
+                camBuf->metadata_buff->size, camBuf->metadata_buff);
+            if (camBuf->metadata_buff == NULL) {
+                LOGE("Error allocation memory for metadata buffers!");
+                status = NO_MEMORY;
+                goto errorFree;
+            }
+            memcpy(camBuf->metadata_buff->data, meta_data_prt, meta_data_size);
+
+            delete metaDataBuf;
+            metaDataBuf = NULL;
+        } else {
+            LOGE("Error allocation memory for metaDataBuf!");
+            status = NO_MEMORY;
+            goto errorFree;
+        }
+    }
+    return status;
+
+errorFree:
+    // On error, free the allocated buffers
+    freeMetaDataBuffers();
+    if (metaDataBuf) {
+        delete metaDataBuf;
+        metaDataBuf = NULL;
+    }
+#endif
+    return status;
+}
+
+void ControlThread::freeMetaDataBuffers()
+{
+    LOG1("@%s", __FUNCTION__);
+#ifdef ENABLE_INTEL_METABUFFER
+    // release metadata buffer
+    for (int i = 0 ; i < mNumBuffers; i++) {
+        LOG1("@%s, mConversionBuffers[%d].metadata_buff:0x%p", __FUNCTION__, i, mConversionBuffers[i].metadata_buff);
+        if (mConversionBuffers[i].metadata_buff) {
+            mConversionBuffers[i].metadata_buff->release(mConversionBuffers[i].metadata_buff);
+            mConversionBuffers[i].metadata_buff = NULL;
+        }
+    }
+#endif
+}
+
 status_t ControlThread::startPreviewCore(bool videoMode)
 {
     LOG1("@%s", __FUNCTION__);
@@ -655,7 +754,6 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
     mDriver->setPreviewFrameSize(previewWidth, previewHeight);
     mPreviewThread->setPreviewConfig(previewWidth, previewHeight, mCameraFormat, previewFormat);
-//    LOGE("@%s, liang, line:%d, previewWidth:%d, previewHeight:%d", __FUNCTION__, __LINE__, previewWidth, previewHeight);
     // set video frame config
     if (videoMode) {
         mParameters.getVideoSize(&videoWidth, &videoHeight);
@@ -670,13 +768,23 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     int bytes = frameSize(previewFormat, previewWidth, previewHeight);
     //we could always use GEMFlink
     //but it may be over-kill
-    ICameraBufferAllocator *alloc = mStoreMetaDataInVideoBuffers?GEMFlinkAllocator::instance():CameraMemoryAllocator::instance();
+//    ICameraBufferAllocator *alloc = mStoreMetaDataInVideoBuffers?GEMFlinkAllocator::instance():CameraMemoryAllocator::instance();
+    ICameraBufferAllocator *alloc = CameraMemoryAllocator::instance();
     for (int i = 0; i < mNumBuffers; i++) {
         alloc->allocateMemory(&mConversionBuffers[i],
                 bytes, previewWidth, previewHeight, previewFormat);
+        mConversionBuffers[i].metadata_buff = NULL;
         mConversionBuffers[i].mID = i;
         mConversionBuffers[i].mType = BUFFER_TYPE_INTERMEDIATE;
         mConversionBuffers[i].mOwner = this;
+        LOG2("@%s, mConversionBuffers[%d]:%p", __FUNCTION__, i, &mConversionBuffers[i]);
+    }
+
+    if (videoMode) {
+        allocateMetaDataBuffers();
+    }
+
+    for (int i = 0; i < mNumBuffers; i++) {
         mFreeBuffers.push(&mConversionBuffers[i]);
     }
 
@@ -710,6 +818,9 @@ status_t ControlThread::stopPreviewCore()
     } else {
         ALOGE("Error stopping driver in preview mode!");
     }
+
+    // release metadata buffer
+    freeMetaDataBuffers();
 
     for (int i = 0; i < mNumBuffers; i++) {
         mConversionBuffers[i].releaseMemory();
@@ -763,7 +874,7 @@ status_t ControlThread::restartPreview(bool videoMode)
 
 status_t ControlThread::handleMessageStartPreview()
 {
-    LOG1("@%s", __FUNCTION__);
+    LOG1("@%s, mState:%d", __FUNCTION__, mState);
     status_t status;
     if (mState == STATE_CAPTURE) {
         status = stopCapture();
@@ -813,13 +924,11 @@ status_t ControlThread::handleMessageStartRecording()
     status_t status = NO_ERROR;
 
     if (mState == STATE_PREVIEW_VIDEO) {
-//        LOGE("@%s, liang, line:%d", __FUNCTION__, __LINE__);
         mState = STATE_RECORDING;
     } else if (mState == STATE_PREVIEW_STILL) {
         /* We are in PREVIEW_STILL mode; in order to start recording
          * we first need to stop CameraDriver and restart it with MODE_VIDEO
          */
-//        LOGE("@%s, liang, line:%d", __FUNCTION__, __LINE__);
         LOG2("We are in STATE_PREVIEW. Switching to STATE_VIDEO before starting to record.");
         if ((status = stopPreviewCore()) == NO_ERROR) {
             if ((status = startPreviewCore(true)) == NO_ERROR) {
@@ -1025,12 +1134,13 @@ status_t ControlThread::handleMessageCancelAutoFocus()
 
 status_t ControlThread::handleMessageReleaseRecordingFrame(MessageReleaseRecordingFrame *msg)
 {
-    LOG1("@%s", __FUNCTION__);
+    LOG1("@%s, buff:%p", __FUNCTION__, msg->buff);
     status_t status = NO_ERROR;
     if (mState == STATE_RECORDING) {
         CameraBuffer *buff = mDriver->findBuffer(msg->buff);
         if (buff == 0) {
             buff = findConversionBuffer(msg->buff);
+            LOG1("@%s, rrelease recording buff:0x%p", __FUNCTION__, buff);
             if (buff == 0) {
                 ALOGE("Could not find recording buffer: %p", msg->buff);
                 return DEAD_OBJECT;
@@ -1875,8 +1985,6 @@ status_t ControlThread::handleMessageSetParameters(MessageSetParameters *msg)
     int vWidth, vHeight;
     newParams.getPreviewSize(&pWidth, &pHeight);
     newParams.getVideoSize(&vWidth, &vHeight);
-//    LOGE("@%s, liang, line:%d, previewWidth:%d, previewHeight:%d", __FUNCTION__, __LINE__, pWidth, pHeight);
-//    LOGE("@%s, liang, line:%d, videoWidth:%d, videoHeight:%d", __FUNCTION__, __LINE__, vWidth, vHeight);
 
     // Workaround: The camera firmware doesn't support preview dimensions that
     // are bigger than video dimensions. If a single preview dimension is larger
@@ -1889,8 +1997,6 @@ status_t ControlThread::handleMessageSetParameters(MessageSetParameters *msg)
 
         newParams.getPreviewSize(&pWidth, &pHeight);
         newParams.getVideoSize(&vWidth, &vHeight);
-//        LOGE("@%s, liang, line:%d, previewWidth:%d, previewHeight:%d", __FUNCTION__, __LINE__, pWidth, pHeight);
-//        LOGE("@%s, liang, line:%d, videoWidth:%d, videoHeight:%d", __FUNCTION__, __LINE__, vWidth, vHeight);
         if (vWidth < pWidth || vHeight < pHeight) {
             ALOGW("Warning: Video dimension(s) is smaller than preview dimension(s). "
                     "Overriding preview resolution to video resolution [%d, %d] --> [%d, %d]",
@@ -1951,16 +2057,16 @@ status_t ControlThread::handleMessageGetParameters(MessageGetParameters *msg)
     return status;
 }
 
-
-
 status_t ControlThread::handleMessageStoreMetaData(MessageStoreMetaData* msg)
 {
-    LOG2("@%s, enable =%d", __FUNCTION__, msg->enable);
+    LOG1("@%s, enable =%d", __FUNCTION__, msg->enable);
     status_t status = NO_ERROR;
     if (mStoreMetaDataInVideoBuffers == msg->enable){
         return NO_ERROR;
     }
     mStoreMetaDataInVideoBuffers = msg->enable;
+//    mDriver->storeMetaDataInBuffers(mStoreMetaDataInVideoBuffers);
+    mCallbacks->storeMetaDataInBuffers(mStoreMetaDataInVideoBuffers);
     //if recording already started, then we have to restart.
     if (mState == STATE_PREVIEW_VIDEO || mState == STATE_RECORDING) {
         State orig_state = mState;
@@ -2130,9 +2236,16 @@ CameraBuffer* ControlThread::findConversionBuffer(void *findMe)
 {
     // This is a small list, so incremental search is not an issue right now
     if (mConversionBuffers) {
-        for (int i = 0; i < mNumBuffers; i++) {
-            if (mConversionBuffers[i].hasData(findMe))
-                return &mConversionBuffers[i];
+        if (mStoreMetaDataInVideoBuffers) {
+            for (int i = 0; i < mNumBuffers; i++) {
+                if (findMe == mConversionBuffers[i].metadata_buff->data)
+                    return &mConversionBuffers[i];
+            }
+        } else {
+            for (int i = 0; i < mNumBuffers; i++) {
+                if (mConversionBuffers[i].hasData(findMe))
+                    return &mConversionBuffers[i];
+            }
         }
     }
     return 0;
@@ -2168,7 +2281,7 @@ status_t ControlThread::dequeuePreview()
 
 status_t ControlThread::dequeueRecording()
 {
-    LOG1("@%s", __FUNCTION__);
+    LOG1("@%s,mState is:%d", __FUNCTION__, mState);
     CameraBuffer* buff;
     nsecs_t timestamp;
     status_t status = NO_ERROR;
