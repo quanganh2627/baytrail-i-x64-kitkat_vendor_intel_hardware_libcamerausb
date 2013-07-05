@@ -342,7 +342,7 @@ private:
     int mCameraFormat;
     bool mStoreMetaDataInVideoBuffers;
 
-
+    mutable Mutex mStateLock;
 }; // class ControlThread
 
 }; // namespace android

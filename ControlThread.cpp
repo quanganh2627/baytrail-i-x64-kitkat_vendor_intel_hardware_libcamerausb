@@ -237,6 +237,7 @@ status_t ControlThread::stopRecording()
 bool ControlThread::previewEnabled()
 {
     LOG2("@%s", __FUNCTION__);
+    Mutex::Autolock lock(mStateLock);
     bool enabled = (mState == STATE_PREVIEW_STILL ||
             mState == STATE_PREVIEW_VIDEO ||
             mState == STATE_RECORDING);
@@ -862,6 +863,7 @@ status_t ControlThread::stopCapture()
 status_t ControlThread::restartPreview(bool videoMode)
 {
     LOG1("@%s: mode = %s", __FUNCTION__, videoMode?"VIDEO":"STILL");
+    Mutex::Autolock lock(mStateLock);
     bool faceActive = mFaceDetectionActive;
     stopFaceDetection(true);
     status_t status = stopPreviewCore();
