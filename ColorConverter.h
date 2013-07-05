@@ -29,6 +29,7 @@ void YU16ToYV12(int width, int height, void *src, void *dst);
 void YU16ToNV12(int width, int height, void *src, void *dst);
 void YU16ToYUYV(int width, int height, void *src, void *dst);
 void YV12ToNV12(int width, int height, void *src, void *dst);
+void NV12ToP411(int width, int height, void *src, void *dst);
 
 }; // namespace android
 

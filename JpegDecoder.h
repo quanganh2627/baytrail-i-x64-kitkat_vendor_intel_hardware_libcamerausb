@@ -30,6 +30,12 @@ namespace android {
 // Hardware JPEG decoder using libva acceleration
 class JpegDecoder {
 public:
+    enum OutputFormat {
+        OUTPUT_FORMAT_YV12 = 0,
+        OUTPUT_FORMAT_YU16 = 1,
+        OUTPUT_FORMAT_YUYV = 2
+    };
+
     JpegDecoder(int w, int h);
     virtual ~JpegDecoder();
 
@@ -40,6 +46,7 @@ public:
     // Data is returned in a mapped YUY2 buffer
     void *data() { return mOutBuf; }
     size_t dataSize() { return OutSize; }
+    void configOutputFormat(OutputFormat fmt);
 
 private:
     bool init();
@@ -53,7 +60,7 @@ private:
 
     int dumpYU16(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst);
     int dumpYV12(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst);
-
+    int dumpYUYV(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst);
 
     int mWidth, mHeight;
     bool mValid;
@@ -81,6 +88,8 @@ private:
     VASurfaceID mSurf;
     VAContextID mCtx;
     VAImage mImg;
+
+    OutputFormat mOutputFormat;
 };
 
 }; //namespace android

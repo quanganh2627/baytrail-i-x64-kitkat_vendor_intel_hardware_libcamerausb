@@ -27,6 +27,9 @@
 #define MAX_PARAM_VALUE_LENGTH 32
 #define MAX_BURST_BUFFERS 32
 
+// macro CLIP is used to clip the Number value to between the Min and Max
+#define CLIP(Number, Max, Min)    ((Number) > (Max) ? (Max) : ((Number) < (Min) ? (Min) : (Number)))
+
 namespace android {
 
 

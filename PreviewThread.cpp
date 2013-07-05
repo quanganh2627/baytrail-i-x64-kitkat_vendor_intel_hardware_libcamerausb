@@ -141,15 +141,9 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
             }
 
             LOG1("Preview Color Conversion to RGBA, stride: %d height: %d", stride, mPreviewHeight);
-#if 0
-            colorConvert(V4L2_PIX_FMT_YUYV, V4L2_PIX_FMT_NV21,
-                    mPreviewWidth, mPreviewHeight,
-                    msg->inputBuff->getData(), dst);
-#else
-            // temp code
-            YU16ToYV12(mPreviewWidth, mPreviewHeight, msg->inputBuff->getData(), dst);
-//            memcpy(msg->inputBuff->getData(), dst, mPreviewWidth*mPreviewHeight*3/2);
-#endif
+
+            memcpy(dst, msg->inputBuff->getData(), mPreviewWidth*mPreviewHeight*3/2);
+
             if ((err = mPreviewWindow->enqueue_buffer(mPreviewWindow, buf)) != 0) {
                 ALOGE("Surface::queueBuffer returned error %d", err);
             }

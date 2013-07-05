@@ -135,11 +135,9 @@ void JpegDecoder::skip(int n)
 }
 
 JpegDecoder::JpegDecoder(int w, int h)
-    : mWidth(w), mHeight(h), mOutBuf(0), mDpy(0), mCfg(0), mSurf(0), mCtx(0)
+    : mWidth(w), mHeight(h), mOutBuf(0), mDpy(0), mCfg(0), mSurf(0), mCtx(0), mOutputFormat(OUTPUT_FORMAT_YV12)
 {
-//    LOGE("@%s, liang, line:%d, mValid:%d, w:%d, h:%d", __FUNCTION__, __LINE__, mValid, mWidth, mHeight);
     mValid = init();
-//    LOGE("@%s, liang, line:%d, mValid:%d", __FUNCTION__, __LINE__, mValid);
 }
 
 JpegDecoder::~JpegDecoder()
@@ -182,7 +180,6 @@ bool JpegDecoder::init()
     vector<VAEntrypoint> eps(vaMaxNumEntrypoints(mDpy));
     int nep;
     VACALL(vaQueryConfigEntrypoints(mDpy, VAProfileJPEGBaseline, &eps[0], &nep));
-//    LOGE("@%s, liang, line:%d, nep:%d", __FUNCTION__, __LINE__, nep);
     bool found = false;
     for (int i=0; i<nep; i++)
         if (eps[i] == VAEntrypointVLD)
@@ -224,33 +221,22 @@ bool JpegDecoder::init()
     VAImageFormat *ifmt = 0;
     int n = 0;
     vector<VAImageFormat> fmts(vaMaxNumImageFormats(mDpy));
-//    LOGE("@%s, liang, line:%d, max number image format:%d", __FUNCTION__, __LINE__, vaMaxNumImageFormats(mDpy));
     VACALL(vaQueryImageFormats(mDpy, &fmts[0], &n));
-//    LOGE("@%s, liang, line:%d, vaQueryImageFormats n:%d", __FUNCTION__, __LINE__, n);
     for (int i=0; i<n; i++) {
-//        LOGE("@%s, liang, line:%d, fmts[%d].fourcc:0x%x", __FUNCTION__, __LINE__, i, fmts[i].fourcc);
-//        if (fmts[i].fourcc == VA_FOURCC_YUY2)
         if (fmts[i].fourcc == VA_FOURCC_NV12)
             ifmt = &fmts[i];
     }
     if (!ifmt) {
-//        LOGERR("can't find YUY2 image format\n");
         LOGERR("can't find NV12 image format\n");
         return false;
     }
-#if 0
-    VACALL(vaCreateImage(mDpy, ifmt, mWidth, mHeight, &mImg));
-    VACALL(vaMapBuffer(mDpy, mImg.buf, &mOutBuf));
-#endif
     mOutBuf = malloc(mWidth * mHeight * 2); // temp code
-//    LOGE("@%s, liang, line:%d, mOutBuf:0x%x", __FUNCTION__, __LINE__, (int)mOutBuf);
 
     return true;
 }
 
 bool JpegDecoder::decodeJpeg(const unsigned char *buf, int len)
 {
-//    LOGE("@%s, liang, line:%d, decodeJpeg, buf:0x%x, len:%d", __FUNCTION__, __LINE__, (int)buf, len);
     mParseDead = false;
     mBuf = buf;
     mEnd = buf + len;
@@ -267,8 +253,6 @@ bool JpegDecoder::decodeJpeg(const unsigned char *buf, int len)
 
     if (!parse())
         return false;
-
-//    LOGE("@%s, liang, line:%d", __FUNCTION__, __LINE__);
 
     mSliceParm.slice_data_size = mEnd - mBuf;
     mSliceParm.slice_data_flag = VA_SLICE_DATA_FLAG_ALL;
@@ -380,7 +364,6 @@ bool JpegDecoder::parse()
 
 bool JpegDecoder::decode()
 {
-//    LOGE("@%s, liang, line:%d, mHaveHuff:%d", __FUNCTION__, __LINE__, mHaveHuff);
     const VAHuffmanTableBufferJPEGBaseline *huff = mHaveHuff ? &mHuff : &default_huff;
 
     // Create the buffers to be rendered
@@ -406,8 +389,13 @@ bool JpegDecoder::decode()
     VACALL(vaDeriveImage(mDpy, mSurf, &mImg));
     void * surface_p = NULL;
     VACALL(vaMapBuffer(mDpy, mImg.buf, &surface_p));
-//    LOGE("@%s, liang, line:%d, surface_p:0x%x!!!!!!!!", __FUNCTION__, __LINE__, (int)surface_p);
-    OutSize = dumpYU16(mImg, surface_p, mWidth, mHeight, mOutBuf);
+
+    if (mOutputFormat == OUTPUT_FORMAT_YV12)
+        OutSize = dumpYV12(mImg, surface_p, mWidth, mHeight, mOutBuf);
+    else if (mOutputFormat == OUTPUT_FORMAT_YU16)
+        OutSize = dumpYU16(mImg, surface_p, mWidth, mHeight, mOutBuf);
+    else if (mOutputFormat == OUTPUT_FORMAT_YUYV)
+        OutSize = dumpYUYV(mImg, surface_p, mWidth, mHeight, mOutBuf);
 
     VACALL(vaUnmapBuffer(mDpy, mImg.buf));
     VACALL(vaDestroyImage(mDpy, mImg.image_id));
@@ -421,58 +409,45 @@ int JpegDecoder::dumpYV12(VAImage va_image, void *pImage_Src, int actW, int actH
     int y_bytes, u_bytes, v_bytes;
     unsigned char *pSrc_Y, *pSrc_UV, *pDst_Y, *pDst_U, *pDst_V, *pSrcTmp, *pSrc_U, *pSrc_V;
     int i, j;
-
-//    LOGE("@%s, liang, line:%d, Image width = %d, Height = %d", __FUNCTION__, __LINE__, va_image.width, va_image.height);
+    int realHeight = (va_image.height > mHeight) ? mHeight : va_image.height;
 
     pSrc_Y = (unsigned char *)pImage_Src;
     pSrc_U = pSrc_Y + va_image.offsets[1];
     pSrc_V = pSrc_U + va_image.offsets[2];
-//    LOGE("@%s, liang, line:%d, src addr = %p, %p, %p", __FUNCTION__, __LINE__, pSrc_Y, pSrc_U, pSrc_V);
-//    LOGE("@%s, liang, line:%d, offset = %d, %d, %d", __FUNCTION__, __LINE__, va_image.offsets[0], va_image.offsets[1], va_image.offsets[2]);
-//    LOGE("@%s, liang, line:%d, pitch = %d, %d, %d", __FUNCTION__, __LINE__, va_image.pitches[0], va_image.pitches[1], va_image.pitches[2]);
 
-    // Y 
+    // Y
     nWidth =  va_image.width;
-    nHeight = va_image.height;
+    nHeight = realHeight;
     y_bytes = num_bytes = nWidth * nHeight;
     pDst_Y = (unsigned char *)PDst;
     for (i = 0; i < nHeight; i++)
         memcpy(pDst_Y + i * nWidth, pSrc_Y + i * va_image.pitches[0], nWidth);
-//    LOGE("@%s, liang, line:%d, Y (WxH) %d x %d, bytes = %d", __FUNCTION__, __LINE__, nWidth, nHeight, num_bytes);
 
-    pSrc_V = pSrc_U + nHeight * va_image.pitches[1];
-//    LOGE("@%s, liang, line:%d, src addr = %p, %p, %p, again", __FUNCTION__, __LINE__, pSrc_Y, pSrc_U, pSrc_V);
-    // to check if I need it
-
+    pSrc_V = pSrc_U + va_image.height * va_image.pitches[1];
     //V
     pDst_V = pDst_Y + num_bytes;
     nWidth =  va_image.width / 2;
-    nHeight = va_image.height / 2;
+    nHeight = realHeight / 2;
     v_bytes = num_bytes = nWidth * nHeight;
 
     for (i = 0; i < nHeight; i++)
-        memcpy(pDst_V + i * nWidth, pSrc_V + i * va_image.pitches[2], nWidth);
-//    LOGE("@%s, liang, line:%d, V (WxH) %d x %d, bytes = %d", __FUNCTION__, __LINE__, nWidth, nHeight, num_bytes);
+        memcpy(pDst_V + i * nWidth, pSrc_V + 2 * i * va_image.pitches[2], nWidth);
 
     //U
     pDst_U = pDst_V + num_bytes;
     nWidth =  va_image.width / 2;
-    nHeight = va_image.height / 2;
+    nHeight = realHeight / 2;
     u_bytes = num_bytes = nWidth * nHeight;
 
     for (i = 0; i < nHeight; i++)
-        memcpy(pDst_U + i * nWidth, pSrc_U + i * va_image.pitches[1], nWidth);
-//    LOGE("@%s, liang, line:%d, U (WxH) %d x %d, bytes = %d", __FUNCTION__, __LINE__, nWidth, nHeight, num_bytes);
+        memcpy(pDst_U + i * nWidth, pSrc_U + 2 * i * va_image.pitches[1], nWidth);
 
     num_bytes = y_bytes + u_bytes + v_bytes;
-//    LOGE("@%s, liang, line:%d, total YUV size = %d", __FUNCTION__, __LINE__, num_bytes);
     return num_bytes;
 }
 
-
-// the output is YV16
+// the output is YU16
 // the input is YUV422H MJPEG
-// the really format is YU16, it will be corrected at last time
 int JpegDecoder::dumpYU16(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst)
 {
     int num_bytes, nWidth, nHeight, nAWidth, nAHeight;
@@ -481,51 +456,74 @@ int JpegDecoder::dumpYU16(VAImage va_image, void *pImage_Src, int actW, int actH
     int i, j;
     int realHeight = (va_image.height > mHeight) ? mHeight : va_image.height;
 
-//    LOGE("@%s, liang, line:%d, Image width = %d, Height = %d, realHeight:%d", __FUNCTION__, __LINE__, va_image.width, va_image.height, realHeight);
-
     pSrc_Y = (unsigned char *)pImage_Src;
     pSrc_U = pSrc_Y + va_image.offsets[1];
     pSrc_V = pSrc_U + va_image.offsets[2];
-//    LOGE("@%s, liang, line:%d, src addr = %p, %p, %p", __FUNCTION__, __LINE__, pSrc_Y, pSrc_U, pSrc_V);
-//    LOGE("@%s, liang, line:%d, offset = %d, %d, %d", __FUNCTION__, __LINE__, va_image.offsets[0], va_image.offsets[1], va_image.offsets[2]);
-//    LOGE("@%s, liang, line:%d, pitch = %d, %d, %d", __FUNCTION__, __LINE__, va_image.pitches[0], va_image.pitches[1], va_image.pitches[2]);
 
-    // Y 
+    // Y
     nWidth =  va_image.width;
     nHeight = realHeight;
     y_bytes = num_bytes = nWidth * nHeight;
     pDst_Y = (unsigned char *)PDst;
     for (i = 0; i < nHeight; i++)
         memcpy(pDst_Y + i * nWidth, pSrc_Y + i * va_image.pitches[0], nWidth);
-//    LOGE("@%s, liang, line:%d, Y (WxH) %d x %d, bytes = %d", __FUNCTION__, __LINE__, nWidth, nHeight, num_bytes);
 
     //U
     pDst_U = pDst_Y + num_bytes;
     nWidth =  va_image.width / 2;
     nHeight = realHeight;
     u_bytes = num_bytes = nWidth * nHeight;
-
     for (i = 0; i < nHeight; i++)
         memcpy(pDst_U + i * nWidth, pSrc_U + i * va_image.pitches[1], nWidth);
-//    LOGE("@%s, liang, line:%d, U (WxH) %d x %d, bytes = %d", __FUNCTION__, __LINE__, nWidth, nHeight, num_bytes);
 
     pSrc_V = pSrc_U + va_image.height * va_image.pitches[1];
-//    LOGE("@%s, liang, line:%d, src addr = %p, %p, %p, again", __FUNCTION__, __LINE__, pSrc_Y, pSrc_U, pSrc_V);
-
     //V
     pDst_V = pDst_U + num_bytes;
     nWidth =  va_image.width / 2;
     nHeight = realHeight;
     v_bytes = num_bytes = nWidth * nHeight;
-
     for (i = 0; i < nHeight; i++)
         memcpy(pDst_V + i * nWidth, pSrc_V + i * va_image.pitches[2], nWidth);
-//    LOGE("@%s, liang, line:%d, V (WxH) %d x %d, bytes = %d", __FUNCTION__, __LINE__, nWidth, nHeight, num_bytes);
 
     num_bytes = y_bytes + u_bytes + v_bytes;
-//    LOGE("@%s, liang, line:%d, total YUV size = %d", __FUNCTION__, __LINE__, num_bytes);
     return num_bytes;
 }
 
+//YUYV:the same as YUY2. "Y0U0Y1V0 Y2U2Y3V2..."
+int JpegDecoder::dumpYUYV(VAImage va_image, void *pImage_Src, int actW, int actH, void *PDst)
+{
+    int nWidth, nHeight;
+    unsigned char *pSrc_Y, *pSrc_U, *pSrc_V, *p, *y, *u, *v;
+    int i, j;
+    int realHeight = (va_image.height > mHeight) ? mHeight : va_image.height;
+
+    pSrc_Y = (unsigned char *)pImage_Src;
+    pSrc_U = pSrc_Y + va_image.offsets[1];
+    pSrc_V = pSrc_U + va_image.height * va_image.pitches[1];
+
+    nWidth =  va_image.width / 2;
+    nHeight = realHeight;
+    p = (unsigned char *)PDst;
+    for (i = 0; i < nHeight; i++) {
+        y = pSrc_Y + i * va_image.pitches[0];
+        u = pSrc_U + i * va_image.pitches[1];
+        v = pSrc_V + i * va_image.pitches[2];
+        for (j = 0; j < nWidth; j++) {
+            *p++ = *y++;
+            *p++ = *u++;
+            *p++ = *y++;
+            *p++ = *v++;
+        }
+    }
+
+    return (va_image.width * realHeight * 2);
+}
+
+void JpegDecoder::configOutputFormat(OutputFormat fmt) {
+
+    if (fmt < OUTPUT_FORMAT_YV12 || fmt < OUTPUT_FORMAT_YUYV)
+        return;
+    mOutputFormat = fmt;
+}
 
 }; // namespace android

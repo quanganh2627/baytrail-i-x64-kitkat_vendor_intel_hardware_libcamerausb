@@ -131,13 +131,6 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_PREVIEW_SIZE, mBestVidSize.string());
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES, mVidSizes.string());
     params->set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO, mBestVidSize.string());
-#if 0
-    LOGE("@%s, liang, line:%d, KEY_VIDEO_SIZE:%s", __FUNCTION__, __LINE__, mBestVidSize.string());
-    LOGE("@%s, liang, line:%d, KEY_SUPPORTED_VIDEO_SIZES:%s", __FUNCTION__, __LINE__, mVidSizes.string());
-    LOGE("@%s, liang, line:%d, KEY_PREVIEW_SIZE:%s", __FUNCTION__, __LINE__, mBestVidSize.string());
-    LOGE("@%s, liang, line:%d, KEY_SUPPORTED_PREVIEW_SIZES:%s", __FUNCTION__, __LINE__, mVidSizes.string());
-    LOGE("@%s, liang, line:%d, KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO:%s", __FUNCTION__, __LINE__, mBestVidSize.string());
-#endif
     params->setPreviewFrameRate(30);
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FRAME_RATES,"30"); // TODO: consider which FPS to support
     params->set(CameraParameters::KEY_PREVIEW_FPS_RANGE,"30000,30000");
@@ -148,9 +141,9 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED, CameraParameters::FALSE);
 
     params->set(CameraParameters::KEY_SUPPORTED_PICTURE_FORMATS,CameraParameters::PIXEL_FORMAT_JPEG);
-    params->set(CameraParameters::KEY_SUPPORTED_JPEG_THUMBNAIL_SIZES,"0x0,160x120"); // 0x0 indicates "not supported"
-    params->set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, 160);
-    params->set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, 120);
+    params->set(CameraParameters::KEY_SUPPORTED_JPEG_THUMBNAIL_SIZES,"0x0,320x240"); // 0x0 indicates "not supported"
+    params->set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, 320);
+    params->set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, 240);
 
     params->set(CameraParameters::KEY_JPEG_THUMBNAIL_QUALITY, "75");
     params->set(CameraParameters::KEY_JPEG_QUALITY, "75");
@@ -503,9 +496,7 @@ int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers)
         return ret;
 
     String8 mode = String8::format("%dx%d", w, h);
-//    LOGE("@%s, liang, line:%d, before checking, mode:%s", __FUNCTION__, __LINE__, mode.string());
     if(mJpegModes.find(mode) != mJpegModes.end()) {
-//        LOGE("@%s, liang, line:%d, before new JpegDecoder, w:%d, h:%d", __FUNCTION__, __LINE__, w, h);
         mJpegDecoder = new JpegDecoder(w, h);
         if(!mJpegDecoder->valid()) {
             delete mJpegDecoder;
@@ -811,8 +802,6 @@ void CameraDriver::write_image(const void *data, const int size, int width, int 
         return ;
     }
 
-//    LOGE("@%s, liang, line:%d, write_image, name:%s, size:%d", __FUNCTION__, __LINE__, filename, size);
-
     if ((bytes = fwrite (data, size, 1, fp)) < (size_t)size)
         LOGW ("Write less raw bytes to %s: %d, %d", filename, size, bytes);
 
@@ -851,14 +840,12 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **buff, nsecs_t *timestamp, bo
         void * pSrc = camBuff->getData();
         int len = vbuff.bytesused;
 
+        mJpegDecoder->configOutputFormat(forJpeg ? JpegDecoder::OUTPUT_FORMAT_YUYV : JpegDecoder::OUTPUT_FORMAT_YV12);
 //        write_image(pSrc, len, mConfig.preview.width, mConfig.preview.height, ".jpeg");
-
         if(!mJpegDecoder->decodeJpeg((unsigned char *)pSrc, len)) {
-//            LOGE("@%s, liang, line:%d, dequeueBuffer, decodeJpeg failed. data:0x%x, size:%d", __FUNCTION__, __LINE__, (int)pSrc, len);
             return UNKNOWN_ERROR;
         }
-//        LOGE("@%s, liang, line:%d, dequeueBuffer, data:0x%x, size:%d", __FUNCTION__, __LINE__, (int)mJpegDecoder->data(), mJpegDecoder->dataSize());
-//        write_image(mJpegDecoder->data(), mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "yv16.yv16");
+//        write_image(mJpegDecoder->data(), mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "yuyv.yuyv");
 
         // This copy (from the mapped libva surface object back into
         // the V4L2 camera buffer -- essentially pretending that the
@@ -871,19 +858,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **buff, nsecs_t *timestamp, bo
         // under the hood!).  But unfortunately current libva lacks
         // the ability to initialize a VAImage from an existing
         // buffer...
-//        YV16ToYV12(mConfig.preview.width, mConfig.preview.height, mJpegDecoder->data(), camBuff->getData());
-//        write_image(camBuff->getData(), mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "yv12.nv12");
-        if (forJpeg) {
-//            LOGE("@%s, liang, line:%d, forJpeg is true,w:%d,h:%d, size:%d", __FUNCTION__, __LINE__, mConfig.preview.width, mConfig.preview.height, mJpegDecoder->dataSize());
-            void * p = malloc(mJpegDecoder->dataSize());
-//            write_image(mJpegDecoder->data(), mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "YV16.yv16");
-            YU16ToYUYV(mConfig.preview.width, mConfig.preview.height, mJpegDecoder->data(), p);
-//            write_image(p, mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "YUYV.yuy");
-//            memcpy(camBuff->getData(), mJpegDecoder->data(), mJpegDecoder->dataSize());
-            memcpy(camBuff->getData(), p, mJpegDecoder->dataSize());
-            free(p);
-        } else
-            memcpy(camBuff->getData(), mJpegDecoder->data(), mJpegDecoder->dataSize());
+        memcpy(camBuff->getData(), mJpegDecoder->data(), mJpegDecoder->dataSize());
     }
 
     return NO_ERROR;
@@ -930,15 +905,15 @@ void CameraDriver::detectDeviceResolutions()
                 break;
 
             int w = fs.discrete.width, h = fs.discrete.height;
-#if 0
-            // liang, just for test
+/*
+            // just for test
             if (fs.discrete.width == 160)
                 continue;
             if (fs.discrete.width == 320)
                 continue;
             if (fs.discrete.width == 640)
                 continue;
-#endif
+*/
             String8 sz = String8::format("%dx%d", w, h);
 
             int area = w*h;
@@ -970,23 +945,17 @@ void CameraDriver::detectDeviceResolutions()
                         // For MJPEG modes, check that we don't
                         // already have this size in YUYV, and
                         // make sure the decoder works!
-#if 1
                         if(vidmodes.find(sz) != vidmodes.end()) {
 //                           || !JpegDecoder(w, h).valid()) {
-#else
-                        if(vidmodes.find(sz) != vidmodes.end()
-                           || !JpegDecoder(w, h).valid()) {
-#endif
-//                            LOGE("@%s, liang, line:%d, sz:%s", __FUNCTION__, __LINE__, sz.string());
                             continue;
                         }
                         mJpegModes.insert(sz);
-//                        LOGE("@%s, liang, line:%d, mJpegModes insert sz:%s", __FUNCTION__, __LINE__, sz.string());
+                        LOG2("@%s, line:%d, mJpegModes insert sz:%s", __FUNCTION__, __LINE__, sz.string());
                     } else
                         continue; // this can let the yuyv output disabled
-                    
+
                     vidmodes.insert(sz);
-//                    LOGE("@%s, liang, line:%d, insert sz:%s, fmt:%d, j:%d", __FUNCTION__, __LINE__, sz.string(), fmt, j);
+                    LOG2("@%s, line:%d, insert sz:%s, fmt:%d, j:%d", __FUNCTION__, __LINE__, sz.string(), fmt, j);
                     mVidSizes += String8(mVidSizes.size() ? "," : "") + sz;
                     if (area > vmax) {
                         vmax = area;

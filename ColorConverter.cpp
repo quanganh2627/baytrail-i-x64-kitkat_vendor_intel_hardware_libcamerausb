@@ -251,6 +251,33 @@ void NV12ToNV21(int width, int height, void *src, void *dst)
     }
 }
 
+// P411's Y, U, V are seperated. But the NV12's U and V are interleaved.
+void NV12ToP411(int width, int height, void *src, void *dst)
+{
+    int i, j, p, q;
+    unsigned char *pdstU, *pdstV;
+    unsigned char *psrcUV;
+
+    // copy Y data
+    memcpy(dst, src, width * height);
+    // copy U data and V data
+    psrcUV = (unsigned char *)src + width * height;
+    pdstU = (unsigned char *)dst + width * height;
+    pdstV = pdstU + width * height / 4;
+    p = q = 0;
+    for (i = 0; i < height / 2; i++) {
+        for (j = 0; j < width; j++) {
+            if (j % 2 == 0) {
+                pdstU[p]= (psrcUV[i * width + j] & 0xFF) ;
+                p++;
+           } else {
+                pdstV[q]= (psrcUV[i * width + j] & 0xFF);
+                q++;
+            }
+        }
+    }
+}
+
 void YU16ToYUYV(int width, int height, void *src, void *dst)
 {
     int planeSizeY = width * height;
