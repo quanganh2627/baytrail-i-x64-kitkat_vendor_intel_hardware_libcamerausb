@@ -18,12 +18,12 @@ static_libraries := \
 
 c_includes := \
     bionic \
-    bionic/libstdc++/include \
-    external/gtest/include \
-    external/stlport/stlport \
-    frameworks/base/include/camera \
-    hardware/libhardware/include/hardware \
-    system/core/include \
+    $(call include-path-for, libstdc++) \
+    $(call include-path-for, gtest) \
+    $(call include-path-for, stlport) \
+    $(call include-path-for, frameworks-base)/camera \
+    $(call include-path-for, libhardware)/hardware \
+    $(call include-path-for, system-core) \
 
 module_tags := eng tests debug
 

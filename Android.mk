@@ -27,20 +27,20 @@ LOCAL_SRC_FILES := \
 	JpegEncoder.cpp
 
 LOCAL_C_INCLUDES += \
-	frameworks/base/include \
-	frameworks/base/include/binder \
-	frameworks/base/include/camera \
-	system/core/include/cutils \
-	external/jpeg \
-	hardware/libhardware/include \
-	external/skia/include/core \
-	external/skia/include/images \
+	$(call include-path-for, frameworks-base) \
+	$(call include-path-for, frameworks-base)/binder \
+	$(call include-path-for, frameworks-base)/camera \
+	$(call include-path-for, system-core)/cutils \
+	$(call include-path-for, jpeg) \
+	$(call include-path-for, libhardware) \
+	$(call include-path-for, skia)/core \
+	$(call include-path-for, skia)/images \
 	$(TARGET_OUT_HEADERS)/libdrm \
 	$(TARGET_OUT_HEADERS)/libmix_videoencoder \
 	hardware/intel/PRIVATE/libmix/videoencoder \
 	vendor/intel/hardware/libva \
 	bionic \
-	external/stlport/stlport \
+	$(call include-path-for, stlport) \
 
 LOCAL_SHARED_LIBRARIES := \
 	libcamera_client \
