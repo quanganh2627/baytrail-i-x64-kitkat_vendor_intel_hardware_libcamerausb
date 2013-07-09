@@ -23,22 +23,32 @@ LOCAL_SRC_FILES := \
         GraphicBufferAllocator.cpp \
 	JpegEncoder.cpp
 
+
 LOCAL_C_INCLUDES += \
-	frameworks/base/include/binder \
-	frameworks/base/include/camera \
-	system/core/include/cutils \
-	hardware/libhardware/include \
-	external/jpeg \
 	external/PRIVATE/drm/include/drm \
 	external/PRIVATE/drm/intel \
-	external/skia/include/core \
-	external/skia/include/images \
-	external/stlport/stlport \
+	external/jpeg \
 	vendor/intel/hardware/PRIVATE/libmix/videoencoder \
-	vendor/intel/hardware/PRIVATE/libmix/videovpp \
+	$(call include-path-for, libmix_videovpp) \
 	vendor/intel/hardware/PRIVATE/libmix/imagedecoder \
 	vendor/intel/hardware/libva \
 	bionic \
+	$(call include-path-for, frameworks-base) \
+	$(call include-path-for, frameworks-base)/binder \
+	$(call include-path-for, frameworks-base)/camera \
+	$(call include-path-for, system-core)/cutils \
+	$(call include-path-for, libjpeg) \
+	$(call include-path-for, libhardware) \
+	$(call include-path-for, skia)/core \
+	$(call include-path-for, skia)/images \
+	$(TARGET_OUT_HEADERS)/libdrm \
+	$(TARGET_OUT_HEADERS)/libmix_videoencoder \
+	$(TARGET_OUT_HEADERS)/libmix_videovpp \
+	$(TARGET_OUT_HEADERS)/libjpegdec \
+	hardware/intel/PRIVATE/libmix/videoencoder \
+	vendor/intel/hardware/libva \
+	bionic \
+	$(call include-path-for, stlport) \
 
 LOCAL_SHARED_LIBRARIES := \
 	libcamera_client \
