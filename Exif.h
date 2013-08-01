@@ -18,6 +18,7 @@
 #define ANDROID_HARDWARE_EXIF_H
 
 #include <math.h>
+#include <stdint.h>
 
 #define EXIF_LOG2(x)                    (log((double)(x)) / log(2.0))
 #define APEX_FNUM_TO_APERTURE(x)        ((int)(EXIF_LOG2((double)(x)) * 2 + 0.5))
