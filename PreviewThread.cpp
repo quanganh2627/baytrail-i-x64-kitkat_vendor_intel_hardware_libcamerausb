@@ -141,8 +141,7 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
             }
 
             LOG1("Preview Color Conversion to RGBA, stride: %d height: %d", stride, mPreviewHeight);
-
-            memcpy(dst, msg->inputBuff->getData(), mPreviewWidth*mPreviewHeight*3/2);
+            copyBufWithStride(dst, msg->inputBuff->getData(), mPreviewWidth, mPreviewHeight, stride, mGFXHALPixelFormat);
 
             if ((err = mPreviewWindow->enqueue_buffer(mPreviewWindow, buf)) != 0) {
                 ALOGE("Surface::queueBuffer returned error %d", err);
@@ -161,6 +160,35 @@ exit:
     if (msg->outputBuff)
         msg->outputBuff->decrementProccessor();
     return status;
+}
+
+void PreviewThread::copyBufWithStride(void *dst, void *src, int width, int height, int stride, int srcFormat)
+{
+    char *psrc, *pdst;
+    int i, uvstride, uvwidth;
+
+    psrc = (char *)src;
+    pdst = (char *)dst;
+    if (srcFormat == HAL_PIXEL_FORMAT_YV12) {
+        if (stride > width) {
+            for (i = 0; i < height; i++) {
+                memcpy(pdst, psrc, width);
+                pdst += stride;
+                psrc += width;
+            }
+            uvwidth = width / 2;
+            uvstride = stride / 2;
+            for (i = 0; i < height; i++) {
+                memcpy(pdst, psrc, uvwidth);
+                pdst += uvstride;
+                psrc += uvwidth;
+            }
+        } else if (stride == width) {
+            memcpy(dst, src, width*height*3/2);
+        } else {
+            ALOGE("@%s, line:%d, wrong, stride:%d < width:%d", __FUNCTION__, __LINE__, stride, width);
+        }
+    }
 }
 
 status_t PreviewThread::handleMessageSetPreviewWindow(MessageSetPreviewWindow *msg)

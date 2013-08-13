@@ -118,6 +118,7 @@ private:
     // main message function
     status_t waitForAndExecuteMessage();
 
+    void copyBufWithStride(void *dst, void *src, int width, int height, int stride, int srcFormat);
 // inherited from Thread
 private:
     virtual bool threadLoop();
