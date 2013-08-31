@@ -744,13 +744,9 @@ status_t ControlThread::startPreviewCore(bool videoMode)
         mode = CameraDriver::MODE_PREVIEW;
     }
 
-    previewFormat = V4L2_PIX_FMT_NV12;// V4L2Format(mParameters.getPreviewFormat());
+    previewFormat = V4L2Format(mParameters.getPreviewFormat());
     videoFormat = V4L2_PIX_FMT_NV12;//V4L2Format(mParameters.get(CameraParameters::KEY_VIDEO_FRAME_FORMAT));
 
-    if (previewFormat != videoFormat) {
-        ALOGE("preview and video format must be the same");
-        return BAD_VALUE;
-    }
 
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
     mDriver->setPreviewFrameSize(previewWidth, previewHeight);
@@ -761,8 +757,8 @@ status_t ControlThread::startPreviewCore(bool videoMode)
         mDriver->setVideoFrameSize(videoWidth, videoHeight);
         mVideoThread->setConfig(mCameraFormat, videoFormat, videoWidth, videoHeight);
     }
-
-    mPipeThread->setConfig(mCameraFormat, previewFormat, previewWidth, previewHeight);
+    //currently there are no format val for yuv data format after jpefdec, but I will add the val in later version
+    mPipeThread->setConfig(V4L2_PIX_FMT_YUV420, previewFormat, previewWidth, previewHeight);
 
     mNumBuffers = mDriver->getNumBuffers();
     mConversionBuffers = new CameraBuffer[mNumBuffers];

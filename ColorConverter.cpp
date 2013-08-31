@@ -405,6 +405,28 @@ void YV12ToNV12(int width, int height, void *src, void *dst)
         *dstPtr++ = srcPtrV[i];
     }
 }
+void YV12ToNV21(int width, int height, void *src, void *dst)
+{
+    int planeSizeY = width * height;
+    int planeSizeV = planeSizeY / 4;
+    int newPlaneSizeUV = planeSizeY / 2;
+    int i = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrV = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrU = (unsigned char *) srcPtrV + planeSizeV;
+    unsigned char * dstPtr = (unsigned char *) dst;
+
+    // copy the entire Y plane
+    memcpy(dstPtr, srcPtr, planeSizeY);
+    dstPtr += planeSizeY;
+
+    // deinterlace the UV data
+    for(i = 0; i < planeSizeV; i++) {
+        *dstPtr++ = srcPtrV[i];
+        *dstPtr++ = srcPtrU[i];
+    }
+}
+
 
 
 static status_t colorConvertYUYV(int dstFormat, int width, int height, void *src, void *dst)
@@ -449,6 +471,24 @@ static status_t colorConvertNV12(int dstFormat, int width, int height, void *src
 
     return NO_ERROR;
 }
+static status_t colorConvertYUV420(int dstFormat, int width, int height, void *src, void *dst)
+{
+    LOGE("@%s",__FUNCTION__);
+    switch (dstFormat) {
+    case V4L2_PIX_FMT_NV21:
+        YV12ToNV21(width, height, src, dst);
+        break;
+    case V4L2_PIX_FMT_NV12:
+        YV12ToNV12(width, height, src, dst);
+        break;
+    default:
+        ALOGE("Invalid color format (dest)");
+        return BAD_VALUE;
+    };
+
+    return NO_ERROR;
+}
+
 
 status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void *src, void *dst)
 {
@@ -462,6 +502,8 @@ status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void 
         return colorConvertYUYV(dstFormat, width, height, src, dst);
     case V4L2_PIX_FMT_NV12:
         return colorConvertNV12(dstFormat, width, height, src, dst);
+    case V4L2_PIX_FMT_YUV420:
+        return colorConvertYUV420(dstFormat, width, height, src, dst);
     default:
         ALOGE("invalid (source) color format");
         return BAD_VALUE;
