@@ -229,6 +229,53 @@ void NV12ToRGB565(int width, int height, void *src, void *dst)
         rgbs[outPtr++]  = (unsigned char) ((R & 0xf8) | (G >> 5));
     }
 }
+static void YV12ToBGR565(int width, int height, int stride, void *src, void *dst)
+{
+    unsigned char *yuvs = (unsigned char *)src;
+    unsigned char *rgbs = (unsigned char *)dst;
+
+    //the end of the luminance data
+    int lumEnd = stride * height;
+    //points to the next luminance value pair
+    int lumPtr = 0;
+    //points to the next chromiance value pair
+    int chrPtrU = 0, chrPtrV = 0;
+
+    for (int i = 0; i < height; i += 2) {
+        lumPtr = i * stride;
+        chrPtrV = i / 2 * stride / 2 + lumEnd;
+        chrPtrU = i / 2 * stride / 2 + lumEnd + (stride / 2 * height / 2);
+        unsigned char *rgbStart = rgbs;
+        for (int j = 0; j < width; j += 2 ) {
+            //read the luminance and chromiance values
+            int Cb = (yuvs[chrPtrU ++] & 0xff) - 128;
+            int Cr = (yuvs[chrPtrV ++] & 0xff) - 128;
+
+            for (int m = 0; m < 2; m ++) { // m
+                int lumLine = lumPtr + m * stride;
+                unsigned char* pxlrgb = rgbStart + m * width * 2;
+                for (int n = 0; n < 2; n ++) { // n
+                    int Y = yuvs[lumLine ++] & 0xff;
+                    int R, G, B;
+                    B = Y + ((454 * Cb) >> 8);
+                    if(B < 0) B = 0; else if(B > 255) B = 255;
+                    G = Y - ((88 * Cb + 183 * Cr) >> 8);
+                    if(G < 0) G = 0; else if(G > 255) G = 255;
+                    R = Y + ((359 * Cr) >> 8);
+                    if(R < 0) R = 0; else if(R > 255) R = 255;
+
+                    unsigned short *p = (unsigned short *)pxlrgb;
+                    *p = (B>>3) | ((G>>2)<<5) | ((R>>3)<<11);
+                    pxlrgb += 2;
+                } // n
+            } // m
+            lumPtr += 2;
+            rgbStart += 4;
+        } // j
+        rgbs += 4 * width; // 2 lines
+   } // i
+}
+
 
 // covert NV12 (Y plane, interlaced UV bytes) to
 // NV21 (Y plane, interlaced VU bytes)
@@ -481,6 +528,9 @@ static status_t colorConvertYUV420(int dstFormat, int width, int height, void *s
     case V4L2_PIX_FMT_NV12:
         YV12ToNV12(width, height, src, dst);
         break;
+    case V4L2_PIX_FMT_RGB565:
+        YV12ToBGR565(width, height,width,src, dst);
+        break;
     default:
         ALOGE("Invalid color format (dest)");
         return BAD_VALUE;
@@ -489,12 +539,40 @@ static status_t colorConvertYUV420(int dstFormat, int width, int height, void *s
     return NO_ERROR;
 }
 
-
+status_t getImageSize(int Format,int width, int height,int* size)
+{
+    switch (Format){
+        case V4L2_PIX_FMT_YUYV:
+        case V4L2_PIX_FMT_RGB565:
+             *size = width*height*2;
+             break;
+        case V4L2_PIX_FMT_NV12:
+        case V4L2_PIX_FMT_NV21:
+        case V4L2_PIX_FMT_YUV420:
+             *size = width*height*3/2;
+             break;
+        case V4L2_PIX_FMT_RGB32:
+            *size = width*height*4;
+            break;
+        default:
+            ALOGE("invalid color format");
+            return BAD_VALUE;
+    }
+    return NO_ERROR;
+}
 status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void *src, void *dst)
 {
+    status_t status = NO_ERROR;
+    int size = 0;
     if (srcFormat == dstFormat) {
         ALOGE("src format is the same as dst format");
-        return BAD_VALUE;
+        status = getImageSize(srcFormat,width,height,&size);
+        if(status != NO_ERROR)
+        {
+              return status;
+        }
+        memcpy(dst,src,size);
+        return NO_ERROR;
     }
 
     switch (srcFormat) {

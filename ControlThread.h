@@ -343,6 +343,7 @@ private:
     bool mStoreMetaDataInVideoBuffers;
 
     mutable Mutex mStateLock;
+    int mDecodedFormat;  //this variable is used to store data format that get from driver (after jpegdec or direct get from sensor).
 }; // class ControlThread
 
 }; // namespace android

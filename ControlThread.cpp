@@ -54,6 +54,7 @@ ControlThread::ControlThread(int cameraId) :
     ,mLastRecordingBuff(0)
     ,mCameraFormat(mDriver->getFormat())
     ,mStoreMetaDataInVideoBuffers(true)
+    ,mDecodedFormat(V4L2_PIX_FMT_YUV420)
 {
     LOG1("@%s: cameraId = %d", __FUNCTION__, cameraId);
 
@@ -295,7 +296,7 @@ bool ControlThread::isThumbSupported(State state)
     // thumbnail is supported if width and height are non-zero
     // and shot is snapped in still picture mode. thumbnail is
     // not supported for video snapshot.
-    if (state == STATE_PREVIEW_STILL || state == STATE_CAPTURE) {
+    if (state == STATE_PREVIEW_STILL || state == STATE_CAPTURE || state == STATE_PREVIEW_VIDEO || state == STATE_RECORDING) {
         int width = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
         int height = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
         supported = (width != 0) && (height != 0);
@@ -745,7 +746,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     }
 
     previewFormat = V4L2Format(mParameters.getPreviewFormat());
-    videoFormat = V4L2_PIX_FMT_NV12;//V4L2Format(mParameters.get(CameraParameters::KEY_VIDEO_FRAME_FORMAT));
+    videoFormat = V4L2Format(mParameters.get(CameraParameters::KEY_VIDEO_FRAME_FORMAT));
 
 
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
@@ -758,7 +759,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
         mVideoThread->setConfig(mCameraFormat, videoFormat, videoWidth, videoHeight);
     }
     //currently there are no format val for yuv data format after jpefdec, but I will add the val in later version
-    mPipeThread->setConfig(V4L2_PIX_FMT_YUV420, previewFormat, previewWidth, previewHeight);
+    mPipeThread->setConfig(mDecodedFormat, previewFormat, previewWidth, previewHeight);
 
     mNumBuffers = mDriver->getNumBuffers();
     mConversionBuffers = new CameraBuffer[mNumBuffers];
@@ -973,14 +974,14 @@ status_t ControlThread::handleMessageTakePicture()
     int width;
     int height;
 
-    if (origState != STATE_PREVIEW_STILL && origState != STATE_RECORDING) {
+    if (origState != STATE_PREVIEW_STILL && origState != STATE_RECORDING && origState != STATE_PREVIEW_VIDEO) {
         ALOGE("we only support snapshot in still preview and recording");
         return INVALID_OPERATION;
     }
 
     stopFaceDetection();
 
-    if (origState == STATE_PREVIEW_STILL) {
+    if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
         status = stopPreviewCore();
         if (status != NO_ERROR) {
             ALOGE("Error stopping preview!");
@@ -1009,7 +1010,7 @@ status_t ControlThread::handleMessageTakePicture()
     // Configure PictureThread
     PictureThread::Config config;
 
-    if (origState == STATE_PREVIEW_STILL) {
+    if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
         gatherExifInfo(&mParameters, false, &config.exif);
     } else if (origState == STATE_RECORDING) { // STATE_RECORDING
         // Picture thread uses snapshot-size to configure itself. However,
@@ -1018,14 +1019,20 @@ status_t ControlThread::handleMessageTakePicture()
         copyParams.setPictureSize(width, height); // make sure picture size is same as video size
         gatherExifInfo(&copyParams, false, &config.exif);
     }
-
-    config.picture.format = mCameraFormat;
+    if(origState == STATE_PREVIEW_VIDEO || origState == STATE_RECORDING)
+    {
+       config.picture.format = mDecodedFormat;
+    }
+    else
+    {
+       config.picture.format = mCameraFormat;
+    }
     config.picture.quality = mParameters.getInt(CameraParameters::KEY_JPEG_QUALITY);
     config.picture.width = width;
     config.picture.height = height;
 
     if (mThumbSupported) {
-        config.thumbnail.format = mCameraFormat;
+        config.thumbnail.format = config.picture.format;
         config.thumbnail.quality = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_QUALITY);
         config.thumbnail.width = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
         config.thumbnail.height = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
@@ -1033,7 +1040,7 @@ status_t ControlThread::handleMessageTakePicture()
 
     mPictureThread->setConfig(&config);
 
-    if (origState == STATE_PREVIEW_STILL) {
+    if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
         // Configure and start the driver
         mDriver->setSnapshotFrameSize(width, height);
 
@@ -1070,7 +1077,24 @@ status_t ControlThread::handleMessageTakePicture()
         // If we are in video mode we simply use the recording buffer for picture encoding
         // No need to stop, reconfigure, and restart the driver
         if (mLastRecordingBuff !=0)
-            status = mPictureThread->encode(mLastRecordingBuff);
+        {
+            if (mThumbSupported) {
+                if ((status = mDriver->getThumbnail(mLastRecordingBuff, &postviewBuffer, width, height,config.thumbnail.width, config.thumbnail.height)) != NO_ERROR) {
+                     ALOGE("Error in grabbing thumbnail!");
+                     return status;
+                }
+                if(postviewBuffer == NULL)
+                {
+                    ALOGE("postviewBuffer == NULL!");
+                    return NO_MEMORY;
+                }
+                postviewBuffer->setOwner(this);
+                postviewBuffer->mType = BUFFER_TYPE_THUMBNAIL;
+                status = mPictureThread->encode(mLastRecordingBuff, postviewBuffer);
+            } else {
+               status = mPictureThread->encode(mLastRecordingBuff);
+            }
+        }
     }
 
     return status;
