@@ -1079,7 +1079,8 @@ status_t CameraDriver::setVideoFrameSize(int width, int height)
         ALOGE("Reconfiguration in video mode unsupported. Stop the driver first");
         return INVALID_OPERATION;
     }
-
+    mConfig.recording.width = width;
+    mConfig.recording.height= height;
     return setFrameInfo(&mConfig.snapshot, width, height);
 }
 
