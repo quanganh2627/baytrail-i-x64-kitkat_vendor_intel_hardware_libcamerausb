@@ -400,6 +400,9 @@ bool JpegDecoder::decode()
     VACALL(vaUnmapBuffer(mDpy, mImg.buf));
     VACALL(vaDestroyImage(mDpy, mImg.image_id));
 
+    for (int i = 0; i < nbuf; i++)
+        VACALL(vaDestroyBuffer(mDpy, bufs[i]));
+
     return true;
 }
 
