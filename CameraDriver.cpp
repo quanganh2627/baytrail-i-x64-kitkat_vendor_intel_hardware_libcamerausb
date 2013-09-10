@@ -215,6 +215,9 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
        params->set(CameraParameters::KEY_SUPPORTED_FOCUS_MODES, CameraParameters::FOCUS_MODE_FIXED);
        params->set(CameraParameters::KEY_MAX_NUM_FOCUS_AREAS, 0);
 
+       float focalLength = 10; // focalLength unit is mm
+       params->setFloat(CameraParameters::KEY_FOCAL_LENGTH, focalLength);
+
     }  else {
         LOG1("Get Default Parameters for Rear Camera ");
 
