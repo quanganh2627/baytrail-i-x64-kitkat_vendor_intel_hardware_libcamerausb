@@ -19,6 +19,7 @@
 #include <linux/videodev2.h>
 #include "ColorConverter.h"
 #include "LogHelper.h"
+#include "CameraCommon.h"
 
 namespace android {
 
@@ -474,6 +475,46 @@ void YV12ToNV21(int width, int height, void *src, void *dst)
     }
 }
 
+// copy YV12 to YV12 (Y plane, V plan, U plan) in case of different stride length
+void RepaddingYV12(int width, int height, int srcStride, int dstStride, void *src, void *dst)
+{
+    // copy the entire Y plane
+    if (srcStride == dstStride) {
+        memcpy(dst, src, dstStride * height);
+    } else {
+        unsigned char *srcPtrY = (unsigned char *)src;
+        unsigned char *dstPtrY = (unsigned char *)dst;
+        for (int i = 0; i < height; i ++) {
+            memcpy(dstPtrY, srcPtrY, width);
+            srcPtrY += srcStride;
+            dstPtrY += dstStride;
+        }
+    }
+
+    // copy VU plane
+    const int scStride = srcStride >> 1;
+    const int dcStride = ALIGN16(dstStride >> 1); // Android CTS required: U/V plane needs 16 bytes aligned!
+    if (dcStride == scStride) {
+        unsigned char *srcPtrVU = (unsigned char *)src + height * srcStride;
+        unsigned char *dstPtrVU = (unsigned char *)dst + height * dstStride;
+        memcpy(dstPtrVU, srcPtrVU, height * dcStride);
+    } else {
+        const int wHalf = width >> 1;
+        const int hHalf = height >> 1;
+        unsigned char *srcPtrV = (unsigned char *)src + height * srcStride;
+        unsigned char *srcPtrU = srcPtrV + scStride * hHalf;
+        unsigned char *dstPtrV = (unsigned char *)dst + height * dstStride;
+        unsigned char *dstPtrU = dstPtrV + dcStride * hHalf;
+        for (int i = 0; i < hHalf; i ++) {
+            memcpy(dstPtrU, srcPtrU, wHalf);
+            memcpy(dstPtrV, srcPtrV, wHalf);
+            dstPtrU += dcStride;
+            srcPtrU += scStride;
+            dstPtrV += dcStride;
+            srcPtrV += scStride;
+        }
+    }
+}
 
 
 static status_t colorConvertYUYV(int dstFormat, int width, int height, void *src, void *dst)
@@ -520,6 +561,7 @@ static status_t colorConvertNV12(int dstFormat, int width, int height, void *src
 }
 static status_t colorConvertYUV420(int dstFormat, int width, int height, void *src, void *dst)
 {
+    int stride = 0;
     LOGE("@%s",__FUNCTION__);
     switch (dstFormat) {
     case V4L2_PIX_FMT_NV21:
@@ -531,6 +573,10 @@ static status_t colorConvertYUV420(int dstFormat, int width, int height, void *s
     case V4L2_PIX_FMT_RGB565:
         YV12ToBGR565(width, height,width,src, dst);
         break;
+    case V4L2_PIX_FMT_YUV420:
+        stride = ALIGN16(width);
+        RepaddingYV12(width, height,stride,stride,src,dst);
+        break;
     default:
         ALOGE("Invalid color format (dest)");
         return BAD_VALUE;
@@ -539,38 +585,13 @@ static status_t colorConvertYUV420(int dstFormat, int width, int height, void *s
     return NO_ERROR;
 }
 
-status_t getImageSize(int Format,int width, int height,int* size)
-{
-    switch (Format){
-        case V4L2_PIX_FMT_YUYV:
-        case V4L2_PIX_FMT_RGB565:
-             *size = width*height*2;
-             break;
-        case V4L2_PIX_FMT_NV12:
-        case V4L2_PIX_FMT_NV21:
-        case V4L2_PIX_FMT_YUV420:
-             *size = width*height*3/2;
-             break;
-        case V4L2_PIX_FMT_RGB32:
-            *size = width*height*4;
-            break;
-        default:
-            ALOGE("invalid color format");
-            return BAD_VALUE;
-    }
-    return NO_ERROR;
-}
 status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void *src, void *dst)
 {
     status_t status = NO_ERROR;
     int size = 0;
-    if (srcFormat == dstFormat) {
-        ALOGE("src format is the same as dst format");
-        status = getImageSize(srcFormat,width,height,&size);
-        if(status != NO_ERROR)
-        {
-              return status;
-        }
+    if ((srcFormat == dstFormat) && (srcFormat != V4L2_PIX_FMT_YUV420)) {
+        ALOGD("src format is the same as dst format");
+        size = frameSize(srcFormat,width,height);
         memcpy(dst,src,size);
         return NO_ERROR;
     }
