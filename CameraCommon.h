@@ -29,6 +29,8 @@
 
 // macro CLIP is used to clip the Number value to between the Min and Max
 #define CLIP(Number, Max, Min)    ((Number) > (Max) ? (Max) : ((Number) < (Min) ? (Min) : (Number)))
+#define ALIGN16(x) (((x) + 15) & ~15)
+
 
 namespace android {
 
@@ -44,8 +46,14 @@ struct CameraWindow {
 static int frameSize(int format, int width, int height)
 {
     int size = 0;
+    int yplansize = 0;
+    int uvplansize = 0;
     switch (format) {
         case V4L2_PIX_FMT_YUV420:
+            yplansize = ALIGN16(width) * height; //Android CTS verifier required: y plane needs 16 bytes aligned!
+            uvplansize = ALIGN16(width >> 1) * height;//Android CTS verifier required: U/V plane needs 16 bytes aligned!
+            size = yplansize + uvplansize;
+            break;
         case V4L2_PIX_FMT_YVU420:
         case V4L2_PIX_FMT_NV12:
         case V4L2_PIX_FMT_NV21:
