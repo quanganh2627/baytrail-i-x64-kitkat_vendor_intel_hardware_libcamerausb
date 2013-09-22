@@ -562,7 +562,6 @@ static status_t colorConvertNV12(int dstFormat, int width, int height, void *src
 static status_t colorConvertYUV420(int dstFormat, int width, int height, void *src, void *dst)
 {
     int stride = 0;
-    LOGE("@%s",__FUNCTION__);
     switch (dstFormat) {
     case V4L2_PIX_FMT_NV21:
         YV12ToNV21(width, height, src, dst);
