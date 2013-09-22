@@ -78,6 +78,9 @@ CameraDriver::CameraDriver(int cameraId) :
     mBrightMax = 0;
     mBrightMin = 0;
 
+    mWBMode = WHITE_BALANCE_AUTO;
+    mExpBias = 0;
+
     memset(&mBufferPool, 0, sizeof(mBufferPool));
 
     int ret = openDevice();
@@ -1177,7 +1180,7 @@ status_t CameraDriver::getExposureInfo(CamExifExposureProgramType *exposureProgr
     *exposureProgram = EXIF_EXPOSURE_PROGRAM_NORMAL;
     *exposureMode = EXIF_EXPOSURE_AUTO;
     *exposureTime = DEFAULT_EXPOSURE_TIME;
-    *exposureBias = 0.0;
+    *exposureBias = (float)mExpBias;
     *aperture = 1;
     return NO_ERROR;
 }
@@ -1204,7 +1207,7 @@ status_t CameraDriver::getMeteringMode(CamExifMeteringModeType *meteringMode)
 
 status_t CameraDriver::getAWBMode(CamExifWhiteBalanceType *wbMode)
 {
-    *wbMode = EXIF_WB_AUTO;
+    *wbMode = (mWBMode == WHITE_BALANCE_AUTO) ? EXIF_WB_AUTO : EXIF_WB_MANUAL;
     return NO_ERROR;
 }
 
@@ -1836,7 +1839,7 @@ status_t CameraDriver::setFocusMode(FocusMode focusMode, CameraWindow *windows, 
     return NO_ERROR;
 }
 
-status_t CameraDriver::setExposureModeBrightness(float expNorm)
+status_t CameraDriver::setExposureModeBrightness(float expNorm, int expBias)
 {
     LOG1("@%s", __FUNCTION__);
     if (mSupportedControls.brightness) {
@@ -1844,6 +1847,7 @@ status_t CameraDriver::setExposureModeBrightness(float expNorm)
         int brightVal = 0;
         struct v4l2_control control;
 
+        mExpBias = expBias;
         brightVal = (int)(mBrightMax * expNorm);
         control.id = V4L2_CID_BRIGHTNESS;
         control.value = brightVal;
@@ -1864,6 +1868,12 @@ status_t CameraDriver::setWhiteBalanceMode(WhiteBalanceMode wbMode)
     int color_tempreture = 0;
     int ret = NO_ERROR;
     int fd = mCameraSensor[mCameraId]->fd;
+    mWBMode = WHITE_BALANCE_AUTO;
+
+    if (wbMode < WHITE_BALANCE_AUTO || wbMode > WHITE_BALANCE_SHADE) {
+        ALOGE("invalid white balance, wbMode:%d", wbMode);
+        return BAD_VALUE;
+    }
 
     if ((wbMode != WHITE_BALANCE_AUTO) && (!mSupportedControls.whiteBalanceTemperature)) {
         ALOGE("invalid white balance");
@@ -1874,6 +1884,7 @@ status_t CameraDriver::setWhiteBalanceMode(WhiteBalanceMode wbMode)
             return INVALID_OPERATION;
         }
     } else {
+        mWBMode = wbMode;
         switch (wbMode) {
         case WHITE_BALANCE_INCANDESCENT:
         {

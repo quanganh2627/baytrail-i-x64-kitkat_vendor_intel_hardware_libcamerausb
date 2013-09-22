@@ -181,7 +181,7 @@ public:
     status_t setFocusMode(FocusMode focusModei,
                           CameraWindow *windows = 0,    // optional
                           int numWindows = 0);          // optional
-    status_t setExposureModeBrightness(float expNorm);
+    status_t setExposureModeBrightness(float expNorm, int expBias);
     status_t setWhiteBalanceMode(WhiteBalanceMode wbMode);
     status_t setAeLock(bool lock);
     status_t setAwbLock(bool lock);
@@ -350,6 +350,8 @@ private:
     JpegDecoder *mJpegDecoder;
     std::set<String8> mJpegModes;
 
+    WhiteBalanceMode mWBMode;
+    int mExpBias;
 }; // class CameraDriver
 
 }; // namespace android

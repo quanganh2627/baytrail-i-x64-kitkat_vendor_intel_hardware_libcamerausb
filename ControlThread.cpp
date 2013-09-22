@@ -1833,7 +1833,7 @@ status_t ControlThread::processParamExpoComp(const CameraParameters *oldParams,
 
     if (oldExp != newExp) {
         float normExp = newExp/(float)maxExp;
-        mDriver->setExposureModeBrightness(normExp);
+        mDriver->setExposureModeBrightness(normExp, newExp);
         if (status == NO_ERROR) {
             LOG1("Changed: %s -> %d", CameraParameters::KEY_EXPOSURE_COMPENSATION, newExp);
         }
