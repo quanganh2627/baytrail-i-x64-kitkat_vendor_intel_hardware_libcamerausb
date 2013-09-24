@@ -23,6 +23,8 @@
 #include <ui/GraphicBuffer.h>
 #include <ui/GraphicBufferMapper.h>
 #include "CameraCommon.h"
+#include "DumpImage.h"
+
 
 namespace android {
 
@@ -37,9 +39,8 @@ PreviewThread::PreviewThread() :
     ,mPreviewHeight(480)
     ,mInputFormat(0)
     ,mOutputFormat(0)
-//    ,mGFXHALPixelFormat(HAL_PIXEL_FORMAT_RGBA_8888)
-    ,mGFXHALPixelFormat(HAL_PIXEL_FORMAT_YV12)
-
+    ,mGFXHALPixelFormat(HAL_PIXEL_FORMAT_YCbCr_422_I)
+    ,mVaConvertor(new VAConvertor())
 {
     LOG1("@%s", __FUNCTION__);
 }
@@ -48,6 +49,8 @@ PreviewThread::~PreviewThread()
 {
     LOG1("@%s", __FUNCTION__);
     mDebugFPS.clear();
+    if(mVaConvertor !=NULL)
+       delete mVaConvertor;
 }
 
 status_t PreviewThread::setPreviewWindow(struct preview_stream_ops *window)
@@ -58,7 +61,6 @@ status_t PreviewThread::setPreviewWindow(struct preview_stream_ops *window)
     msg.data.setPreviewWindow.window = window;
     return mMessageQueue.send(&msg);
 }
-
 status_t PreviewThread::setPreviewConfig(int preview_width, int preview_height,
         int input_format, int output_format)
 {
@@ -72,7 +74,7 @@ status_t PreviewThread::setPreviewConfig(int preview_width, int preview_height,
     return mMessageQueue.send(&msg);
 }
 
-status_t PreviewThread::preview(CameraBuffer *inputBuff, CameraBuffer *outputBuff)
+status_t PreviewThread::preview(CameraBuffer *inputBuff, CameraBuffer *outputBuff,CameraBuffer *midConvert)
 {
     LOG2("@%s", __FUNCTION__);
     Message msg;
@@ -80,6 +82,7 @@ status_t PreviewThread::preview(CameraBuffer *inputBuff, CameraBuffer *outputBuf
     msg.id = MESSAGE_ID_PREVIEW;
     msg.data.preview.inputBuff = inputBuff;
     msg.data.preview.outputBuff = outputBuff;
+    msg.data.preview.midConvert = midConvert;
     if ((ret = mMessageQueue.send(&msg)) == NO_ERROR) {
         if (inputBuff != 0)
             inputBuff->incrementProcessor();
@@ -139,10 +142,8 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
                 status = NO_MEMORY;
                 goto exit;
             }
-
-            LOG1("Preview Color Conversion to RGBA, stride: %d height: %d", stride, mPreviewHeight);
-            copyBufWithStride(dst, msg->inputBuff->getData(), mPreviewWidth, mPreviewHeight, stride, mGFXHALPixelFormat);
-
+            LOG1("Preview Color Conversion to YUY2, stride: %d height: %d", stride, mPreviewHeight);
+            mVaConvertor->VPPColorConverter(msg->inputBuff->GetGrabuffHandle(),*buf,mPreviewWidth,mPreviewHeight,mInputFormat,HalPixelToV4L2Format(mGFXHALPixelFormat));
             if ((err = mPreviewWindow->enqueue_buffer(mPreviewWindow, buf)) != 0) {
                 ALOGE("Surface::queueBuffer returned error %d", err);
             }
@@ -154,42 +155,39 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
     mDebugFPS->update(); // update fps counter
 exit:
 
-    if (msg->outputBuff)
+    if (mCallbacks->msgTypeEnabled(CAMERA_MSG_PREVIEW_FRAME)&& (msg->outputBuff))
+    {
+        void *srcaddr[3];
+        int size = 0;
+        int alignHeight=0;
+        alignHeight = ALIGN(mPreviewHeight,32);//whether need this
+        if(mOutputFormat == V4L2_PIX_FMT_NV21)
+        {
+           //currently, vpp don't support colorconvert from yuv422h to nv21, so convert to yv12 with vpp, and then convert from yv12 to NV21
+           mVaConvertor->VPPBitBlit(msg->inputBuff->GetRenderTargetHandle(),msg->midConvert->GetRenderTargetHandle());
+           msg->midConvert->LockGrallocData((void**)&srcaddr,&size);
+           colorConvertwithStride(V4L2_PIX_FMT_YUV420,mOutputFormat,msg->midConvert->GetGraStride(),mPreviewWidth,alignHeight,mPreviewHeight,srcaddr[0],msg->outputBuff->getData());
+           msg->midConvert->UnLockGrallocData();
+        }
+        else
+        {
+           mVaConvertor->VPPBitBlit(msg->inputBuff->GetRenderTargetHandle(),msg->midConvert->GetRenderTargetHandle());
+           msg->midConvert->LockGrallocData((void**)&srcaddr,&size);
+           colorConvertwithStride(mOutputFormat,mOutputFormat,msg->midConvert->GetGraStride(),mPreviewWidth,alignHeight,mPreviewHeight,srcaddr[0],msg->outputBuff->getData());
+           msg->midConvert->UnLockGrallocData();
+        }
         mCallbacks->previewFrameDone(msg->outputBuff);
-    msg->inputBuff->decrementProccessor();
+    }
+    if(msg->inputBuff)
+    {
+       msg->inputBuff->decrementProccessor();
+    }
     if (msg->outputBuff)
         msg->outputBuff->decrementProccessor();
     return status;
 }
 
-void PreviewThread::copyBufWithStride(void *dst, void *src, int width, int height, int stride, int srcFormat)
-{
-    char *psrc, *pdst;
-    int i, uvstride, uvwidth;
 
-    psrc = (char *)src;
-    pdst = (char *)dst;
-    if (srcFormat == HAL_PIXEL_FORMAT_YV12) {
-        if (stride > width) {
-            for (i = 0; i < height; i++) {
-                memcpy(pdst, psrc, width);
-                pdst += stride;
-                psrc += width;
-            }
-            uvwidth = width / 2;
-            uvstride = stride / 2;
-            for (i = 0; i < height; i++) {
-                memcpy(pdst, psrc, uvwidth);
-                pdst += uvstride;
-                psrc += uvwidth;
-            }
-        } else if (stride == width) {
-            memcpy(dst, src, width*height*3/2);
-        } else {
-            ALOGE("@%s, line:%d, wrong, stride:%d < width:%d", __FUNCTION__, __LINE__, stride, width);
-        }
-    }
-}
 
 status_t PreviewThread::handleMessageSetPreviewWindow(MessageSetPreviewWindow *msg)
 {
@@ -221,7 +219,7 @@ status_t PreviewThread::handleMessageSetPreviewConfig(MessageSetPreviewConfig *m
 
     if ((msg->width != 0 && msg->height != 0) &&
             (mPreviewWidth != msg->width || mPreviewHeight != msg->height)) {
-        LOG1("Setting new preview size: %dx%d", mPreviewWidth, mPreviewHeight);
+        LOG1("Setting old preview size: %dx%d", mPreviewWidth, mPreviewHeight);
         if (mPreviewWindow != NULL) {
             int previewWidthPadded = paddingWidth(V4L2_PIX_FMT_YUYV, msg->width, msg->height);
             // if preview size changed, update the preview window

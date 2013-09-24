@@ -53,6 +53,33 @@ void* CameraBuffer::getData()
     return mData;
 }
 
+void CameraBuffer::LockGrallocData(void** addr,int* size)
+{
+    int res =0;
+    res =  mGralloc_module->lock(mGralloc_module, mGrhandle,
+                GRALLOC_USAGE_SW_READ_MASK,
+                0, 0, mWidth, mHeight, addr);
+    *size = mGraBuffSize;
+}
+void CameraBuffer::UnLockGrallocData()
+{
+    mGralloc_module->unlock(mGralloc_module, mGrhandle);
+}
+
+buffer_handle_t CameraBuffer::GetGrabuffHandle()
+{
+     return mGrhandle;
+}
+int CameraBuffer::GetGraStride()
+{
+     return mStride;
+}
+RenderTarget* CameraBuffer::GetRenderTargetHandle()
+{
+     return mDecTargetBuf;
+}
+
+
 void CameraBuffer::releaseMemory()
 {
     if (mAlloc != 0) {
@@ -101,6 +128,10 @@ bool CameraBuffer::hasData(void* data) const
          return mAlloc->bufferOwnsThisData(this, data);
      else// buffer has to have an allocator to own data.
          return false;
+}
+int CameraBuffer::GetType()
+{
+     return mType;
 }
 
 } //namespace

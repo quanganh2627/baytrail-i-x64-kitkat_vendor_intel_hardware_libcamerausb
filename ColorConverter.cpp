@@ -19,8 +19,7 @@
 #include <linux/videodev2.h>
 #include "ColorConverter.h"
 #include "LogHelper.h"
-#include "CameraCommon.h"
-
+#include "VAConvertor.h"
 namespace android {
 
 inline unsigned char clamp(int x){
@@ -230,6 +229,207 @@ void NV12ToRGB565(int width, int height, void *src, void *dst)
         rgbs[outPtr++]  = (unsigned char) ((R & 0xf8) | (G >> 5));
     }
 }
+
+void NV12ToRGB565withStride(int width, int height,int stride,int alignheight, void *src, void *dst)
+{
+
+    unsigned char *yuvs = (unsigned char *) src;
+    unsigned char *rgbs = (unsigned char *) dst;
+
+    //the end of the luminance data
+    int lumEnd = stride * alignheight;
+    //points to the next luminance value pair
+    int lumPtr = 0;
+    //points to the next chromiance value pair
+    int chrPtr = lumEnd;
+    //points to the next byte output pair of RGB565 value
+    int outPtr = 0;
+    //the end of the current luminance scanline
+    int lineEnd = width;
+    int diff = stride-width;
+    int actLumEnd = stride*height;
+    while (true) {
+        //skip back to the start of the chromiance values when necessary
+        if (lumPtr == lineEnd) {
+            if (lumPtr == (actLumEnd-diff)) break; //we've reached the end
+            //division here is a bit expensive, but's only done once per scanline
+            lumPtr += diff;
+            chrPtr = lumEnd + ((lumPtr  >> 1) / stride) * stride;
+            lineEnd += stride;
+        }
+        //read the luminance and chromiance values
+        int Y1 = yuvs[lumPtr++] & 0xff;
+        int Y2 = yuvs[lumPtr++] & 0xff;
+        int Cb = (yuvs[chrPtr++] & 0xff) - 128;
+        int Cr = (yuvs[chrPtr++] & 0xff) - 128;
+        int R, G, B;
+
+        //generate first RGB components
+        B = Y1 + ((454 * Cb) >> 8);
+        if(B < 0) B = 0; else if(B > 255) B = 255;
+        G = Y1 - ((88 * Cb + 183 * Cr) >> 8);
+        if(G < 0) G = 0; else if(G > 255) G = 255;
+        R = Y1 + ((359 * Cr) >> 8);
+        if(R < 0) R = 0; else if(R > 255) R = 255;
+        //NOTE: this assume little-endian encoding
+        rgbs[outPtr++]  = (unsigned char) (((G & 0x3c) << 3) | (B >> 3));
+        rgbs[outPtr++]  = (unsigned char) ((R & 0xf8) | (G >> 5));
+
+        //generate second RGB components
+        B = Y2 + ((454 * Cb) >> 8);
+        if(B < 0) B = 0; else if(B > 255) B = 255;
+        G = Y2 - ((88 * Cb + 183 * Cr) >> 8);
+        if(G < 0) G = 0; else if(G > 255) G = 255;
+        R = Y2 + ((359 * Cr) >> 8);
+        if(R < 0) R = 0; else if(R > 255) R = 255;
+        //NOTE: this assume little-endian encoding
+        rgbs[outPtr++]  = (unsigned char) (((G & 0x3c) << 3) | (B >> 3));
+        rgbs[outPtr++]  = (unsigned char) ((R & 0xf8) | (G >> 5));
+    }
+}
+/*
+convert YUV422H to NV12, the yuv422h is placed as Y(stride * alignheight),U(stride * alignheight),V(stride * alignheight)
+the valid data for U/V is width/2 * alignheight
+width: dst image width
+height: dst image height
+stride: stride for src image
+alignheight: aligned height for src image
+*/
+void YUV422PToNV12withStride(int width, int height,int stride,int alignheight, void *src, void *dst)
+{
+    int planeSizeY = stride * alignheight;
+    int planeSizeU = planeSizeY;
+    int i = 0;
+    int j = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrU = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrV = (unsigned char *) srcPtrU + planeSizeU;
+    unsigned char *dstPtr = (unsigned char *) dst;
+    // copy the entire Y plane
+    if(width == stride)
+    {
+       memcpy(dstPtr, srcPtr, width*height);
+       dstPtr += (width*height);
+    }
+    else
+    {
+       for(i=0;i<height;i++)
+       {
+          memcpy(dstPtr, srcPtr, width);
+          dstPtr += width;
+          srcPtr += stride;
+       }
+    }
+    // deinterlace the UV data
+    int vertical = height/2;
+    int horizontal = width / 2;
+    for(i = 0; i < vertical; i++) {
+        for (j = 0; j < horizontal; j++) {
+            *dstPtr++ = srcPtrU[j];
+            *dstPtr++ = srcPtrV[j];
+        }
+        srcPtrV += stride << 1;
+        srcPtrU += stride << 1;
+    }
+
+}
+/*
+convert YUV422H to NV21, the yuv422h is placed as Y(stride * alignheight),U(stride * alignheight),V(stride * alignheight)
+the valid data for U/V is width/2 * alignheight
+width: dst image width
+height: dst image height
+stride: stride for src image
+alignheight: aligned height for src image
+*/
+
+void YUV422PToNV21withStride(int width, int height,int stride,int alignheight, void *src, void *dst)
+{
+    int planeSizeY = stride * alignheight;
+    int planeSizeU = planeSizeY;
+    int i = 0;
+    int j = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrU = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrV = (unsigned char *) srcPtrU + planeSizeU;
+    unsigned char *dstPtr = (unsigned char *) dst;
+    unsigned char *dstPtrVU = (unsigned char *) dst+ width*height;
+    // copy the entire Y plane
+    if(width == stride)
+    {
+       memcpy(dstPtr, srcPtr, width*height);
+       dstPtr += (width*height);
+    }
+    else
+    {
+      for(i = 0;i < height;i++)
+      {
+         memcpy(dstPtr, srcPtr, width);
+         dstPtr += width;
+         srcPtr += stride;
+      }
+   }
+    // deinterlace the VU data
+    int vertical = height / 2;
+    int horizontal = width / 2;
+    for(i = 0; i < vertical; i++) {
+        for (j = 0; j < horizontal; j++) {
+            *dstPtrVU++ = srcPtrV[j];
+            *dstPtrVU++ = srcPtrU[j];
+        }
+        srcPtrV += stride << 1;
+        srcPtrU += stride << 1;
+    }
+
+}
+/*
+convert YUV422H to YV12, the yuv422h is placed as Y(stride * alignheight),U(stride * alignheight),V(stride * alignheight)
+the valid data for U/V is width/2 * alignheight
+yuv422 from graphic buffer should be aligned to 128, so U/V should be aligned to 128, alreay satisfy the requirment of Android's 16 alignment
+width: dst image width
+height: dst image height
+stride: stride for src image
+alignheight: aligned height for src image
+*/
+void YUV422PToYV12withStride(int width, int height,int stride,int alignheight, void *src, void *dst)
+{
+    int planeSizeY = stride * alignheight;
+    int planeSizeU = planeSizeY;
+    int i = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrU = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrV = (unsigned char *) srcPtrU + planeSizeU;
+    unsigned char *dstPtr = (unsigned char *) dst;
+    const int dstStride = ALIGN(width >> 1,16);
+    unsigned char *dstPtrV = (unsigned char *) dst+ width*height;
+    unsigned char *dstPtrU = (unsigned char *) dstPtrV+ dstStride*height/2;
+    // copy the entire Y plane
+    if(width == stride)
+    {
+       memcpy(dstPtr, srcPtr, width*height);
+       dstPtr += (width*height);
+    }
+    else
+    {
+      for(i = 0;i < height;i++)
+      {
+         memcpy(dstPtr, srcPtr, width);
+         dstPtr += width;
+         srcPtr += stride;
+      }
+    }
+    // deinterlace the VU data
+    int vertical = height / 2;
+    int horizontal = width /2;
+    for(i = 0; i < vertical; i++) {
+        memcpy(dstPtrV,srcPtrV,dstStride);
+        srcPtrV += stride << 1;
+        dstPtrV += dstStride;
+        memcpy(dstPtrU,srcPtrU,dstStride);
+        srcPtrU += stride << 1;
+        dstPtrU += dstStride;
+    }
+
+}
 static void YV12ToBGR565(int width, int height, int stride, void *src, void *dst)
 {
     unsigned char *yuvs = (unsigned char *)src;
@@ -407,6 +607,32 @@ void YU16ToNV12(int width, int height, void *src, void *dst)
         }
     }
 }
+void YU16ToNV21(int width, int height, void *src, void *dst)
+{
+    int planeSizeY = width * height;
+    int planeSizeU = planeSizeY / 2;
+    int i = 0;
+    int j = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrU = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrV = (unsigned char *) srcPtrU + planeSizeU;
+    unsigned char *dstPtr = (unsigned char *) dst;
+
+    // copy the entire Y plane
+    memcpy(dstPtr, srcPtr, planeSizeY);
+    dstPtr += planeSizeY;
+
+    // deinterlace the UV data
+    int vertical = height / 2;
+    int horizontal = width / 2;
+    for(i = 0; i < vertical; i++) {
+        for (j = 0; j < horizontal; j++) {
+            *dstPtr++ = srcPtrV[2 * i * horizontal + j];
+            *dstPtr++ = srcPtrU[2 * i * horizontal + j];
+        }
+    }
+}
+
 
 // covert NV12 (Y plane, interlaced UV bytes) to
 // YV12 (Y plane, V plane, U plane)
@@ -474,9 +700,55 @@ void YV12ToNV21(int width, int height, void *src, void *dst)
         *dstPtr++ = srcPtrU[i];
     }
 }
+/*
+convert YV12 to NV21
+width: dst image width
+height: dst image height
+stride: stride for src image
+alignheight: aligned height for src image
+*/
 
-// copy YV12 to YV12 (Y plane, V plan, U plan) in case of different stride length
-void RepaddingYV12(int width, int height, int srcStride, int dstStride, void *src, void *dst)
+void YV12ToNV21withStride(int width, int height,int stride,int alignheight, void *src, void *dst)
+{
+    int planeSizeY = stride * alignheight;
+    int planeSizeV = stride * alignheight / 4;
+    int newPlaneSizeY = width * height;
+    int i = 0;
+    int j = 0;
+    unsigned char *srcPtr = (unsigned char *) src;
+    unsigned char *srcPtrV = (unsigned char *) src + planeSizeY;
+    unsigned char *srcPtrU = (unsigned char *) srcPtrV + planeSizeV;
+    unsigned char * dstPtr = (unsigned char *) dst;
+    unsigned char * dstPtrVU = (unsigned char *) dstPtr + newPlaneSizeY;
+
+    // copy the entire Y plane
+    if(width == stride)
+    {
+       memcpy(dstPtr, srcPtr, width * height);
+       dstPtr += (width * height);
+    }
+    else
+    {
+      for(i = 0;i < height;i++)
+      {
+         memcpy(dstPtr, srcPtr, width);
+         dstPtr += width;
+         srcPtr += stride;
+      }
+   }
+    // deinterlace the UV data
+    int vertical = height / 2;
+    int horizontal = width / 2;
+    for(i = 0; i < vertical; i++) {
+        for( j = 0; j < horizontal; j ++) {
+        *dstPtr++ = srcPtrV[j];
+        *dstPtr++ = srcPtrU[j];
+       }
+        srcPtrV += stride/2;
+        srcPtrU += stride/2;
+    }
+}
+void RepaddingYV12(int width, int height, int srcStride, int dstStride,int alignheight, void *src, void *dst)
 {
     // copy the entire Y plane
     if (srcStride == dstStride) {
@@ -493,16 +765,19 @@ void RepaddingYV12(int width, int height, int srcStride, int dstStride, void *sr
 
     // copy VU plane
     const int scStride = srcStride >> 1;
-    const int dcStride = ALIGN16(dstStride >> 1); // Android CTS required: U/V plane needs 16 bytes aligned!
+    const int dcStride = ALIGN(dstStride >> 1,16); // Android CTS required: U/V plane needs 16 bytes aligned!
     if (dcStride == scStride) {
-        unsigned char *srcPtrVU = (unsigned char *)src + height * srcStride;
-        unsigned char *dstPtrVU = (unsigned char *)dst + height * dstStride;
-        memcpy(dstPtrVU, srcPtrVU, height * dcStride);
+        unsigned char *srcPtrV = (unsigned char *)src + alignheight * srcStride;
+        unsigned char *dstPtrV = (unsigned char *)dst + height * dstStride;
+        memcpy(dstPtrV, srcPtrV, height/2 * dcStride);
+        unsigned char *srcPtrU = srcPtrV + alignheight/2 * scStride;
+        unsigned char *dstPtrU = dstPtrV + height/2 * dcStride;
+        memcpy(dstPtrU, srcPtrU, height/2 * dcStride);
     } else {
         const int wHalf = width >> 1;
         const int hHalf = height >> 1;
-        unsigned char *srcPtrV = (unsigned char *)src + height * srcStride;
-        unsigned char *srcPtrU = srcPtrV + scStride * hHalf;
+        unsigned char *srcPtrV = (unsigned char *)src + alignheight * srcStride;
+        unsigned char *srcPtrU = srcPtrV + scStride * alignheight/2;
         unsigned char *dstPtrV = (unsigned char *)dst + height * dstStride;
         unsigned char *dstPtrU = dstPtrV + dcStride * hHalf;
         for (int i = 0; i < hHalf; i ++) {
@@ -573,8 +848,8 @@ static status_t colorConvertYUV420(int dstFormat, int width, int height, void *s
         YV12ToBGR565(width, height,width,src, dst);
         break;
     case V4L2_PIX_FMT_YUV420:
-        stride = ALIGN16(width);
-        RepaddingYV12(width, height,stride,stride,src,dst);
+        stride = ALIGN(width,16);
+        RepaddingYV12(width, height,stride,stride,height,src,dst);
         break;
     default:
         ALOGE("Invalid color format (dest)");
@@ -602,6 +877,111 @@ status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void 
         return colorConvertNV12(dstFormat, width, height, src, dst);
     case V4L2_PIX_FMT_YUV420:
         return colorConvertYUV420(dstFormat, width, height, src, dst);
+    default:
+        ALOGE("invalid (source) color format");
+        return BAD_VALUE;
+    };
+}
+static status_t colorConvertNV12withStride(int dstFormat, int stride,int width, int alignheight,int height, void *src, void *dst)
+{
+    switch (dstFormat) {
+    case V4L2_PIX_FMT_RGB565:
+        NV12ToRGB565withStride(width, height,stride,alignheight, src, dst);
+        break;
+    default:
+        ALOGE("Invalid color format (dest)");
+        return BAD_VALUE;
+    };
+
+    return NO_ERROR;
+}
+static status_t colorConvertYUV422PwithStride(int dstFormat, int stride,int width, int alignheight,int height, void *src, void *dst)
+{
+    switch (dstFormat) {
+    case V4L2_PIX_FMT_NV12:
+        YUV422PToNV12withStride(width, height,stride,alignheight, src, dst);
+        break;
+    case V4L2_PIX_FMT_NV21:
+        YUV422PToNV21withStride(width, height,stride,alignheight, src, dst);
+        break;
+    case V4L2_PIX_FMT_YUV420:
+        YUV422PToYV12withStride(width, height,stride,alignheight, src, dst);
+        break;
+    default:
+        ALOGE("Invalid color format (dst)");
+        return BAD_VALUE;
+    };
+
+    return NO_ERROR;
+}
+static status_t colorConvertYV12withStride(int dstFormat, int stride,int width, int alignheight,int height, void *src, void *dst)
+{
+    switch (dstFormat) {
+        case V4L2_PIX_FMT_NV21:
+        YV12ToNV21withStride(width, height,stride,alignheight, src, dst);
+        break;
+    default:
+        ALOGE("Invalid color format (dst)");
+        return BAD_VALUE;
+    };
+
+    return NO_ERROR;
+}
+
+int copyBufWithStride(void *dst, void *src, int width, int height, int srcstride,int dststride,int alignheight,int srcFormat)
+{
+    char *psrc, *pdst;
+    int i, uvstride, uvwidth;
+    LOG1("@%s", __FUNCTION__);
+    psrc = (char *)src;
+    pdst = (char *)dst;
+    if (srcFormat == HAL_PIXEL_FORMAT_YV12 ||srcFormat == V4L2_PIX_FMT_YUV420) {
+        RepaddingYV12(width,height,srcstride,dststride,alignheight,src,dst);
+    }
+    else if(srcFormat == HAL_PIXEL_FORMAT_YCrCb_420_SP || srcFormat == V4L2_PIX_FMT_NV21)//nv21
+    {
+        if (srcstride > width) {
+            for (i = 0; i < height; i++) {
+                memcpy(pdst, psrc, width);
+                pdst += width;
+                psrc += srcstride;
+            }
+            uvwidth = width;
+            uvstride = srcstride;
+            for (i = 0; i < height/2; i++) {
+                memcpy(pdst, psrc, uvwidth);
+                pdst += uvwidth;
+                psrc +=uvstride;
+            }
+        } else if (srcstride == width) {
+            memcpy(dst, src, width*height*3/2);
+        } else {
+            ALOGE("@%s, line:%d, wrong, stride:%d < width:%d", __FUNCTION__, __LINE__, srcstride, width);
+            return -1;
+        }
+    }
+    else
+    {
+       ALOGE("@%s, unsupport format");
+    }
+    return 0;
+}
+
+status_t colorConvertwithStride(int srcFormat, int dstFormat, int stride,int width, int alignHeight, int height, void *src, void *dst)
+{
+    if (srcFormat == dstFormat) {
+        return copyBufWithStride(dst,src,width,height,stride,width,alignHeight,srcFormat);
+    }
+
+    switch (srcFormat) {
+    case V4L2_PIX_FMT_NV12:
+    case HAL_PIXEL_FORMAT_NV12_TILED_INTEL:
+        return colorConvertNV12withStride(dstFormat,stride, width, alignHeight,height, src, dst);
+    case V4L2_PIX_FMT_YUV422P:
+    case HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL:
+        return colorConvertYUV422PwithStride(dstFormat,stride, width, alignHeight,height, src, dst);
+    case V4L2_PIX_FMT_YUV420://yv12
+        return colorConvertYV12withStride(dstFormat,stride, width, alignHeight,height, src, dst);
     default:
         ALOGE("invalid (source) color format");
         return BAD_VALUE;
@@ -652,5 +1032,60 @@ int V4L2Format(const char *cameraParamsFormat)
     ALOGE("invalid format %s", cameraParamsFormat);
     return -1;
 }
+int V4L2ToLumaBitsPerPixel(int format)
+{
+    switch(format) {
+        case V4L2_PIX_FMT_YUV420:
+        case V4L2_PIX_FMT_YVU420:
+        case V4L2_PIX_FMT_NV12:
+        case V4L2_PIX_FMT_NV21:
+        case V4L2_PIX_FMT_YUV411P:
+        case V4L2_PIX_FMT_YUV422P:
+           return 1;
+        case V4L2_PIX_FMT_YUYV://yuy2
+           return 2;
+        case V4L2_PIX_FMT_RGB32:
+           return 4;
+        default:
+           return 1;
+        }
+}
+int V4L2FormatToHalPixel(int format)
+{
+     switch(format) {
+        case V4L2_PIX_FMT_YVU420:
+            return HAL_PIXEL_FORMAT_YV12;
+        case V4L2_PIX_FMT_YUV420:
+            return HAL_PIXEL_FORMAT_YV12;
+        case V4L2_PIX_FMT_NV12:
+            return HAL_PIXEL_FORMAT_NV12_TILED_INTEL;
+        case V4L2_PIX_FMT_NV21:
+            return HAL_PIXEL_FORMAT_YCrCb_420_SP;
+        case V4L2_PIX_FMT_YUV422P:
+            return HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL;
+        case V4L2_PIX_FMT_YUYV://yuy2
+            return HAL_PIXEL_FORMAT_YCbCr_422_I;
+        default:
+            ALOGE("unkown color format in V4L2FormatToHalPixel");
+            return -1;
+     }
+}
+int HalPixelToV4L2Format(int format)
+{
+     switch(format) {
+        case HAL_PIXEL_FORMAT_YV12:
+            return V4L2_PIX_FMT_YVU420;
+        case HAL_PIXEL_FORMAT_NV12_TILED_INTEL:
+            return V4L2_PIX_FMT_NV12;
+        case HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL:
+            return V4L2_PIX_FMT_YUV422P;
+        case HAL_PIXEL_FORMAT_YCbCr_422_I://yuy2
+            return V4L2_PIX_FMT_YUYV;
+        default:
+            ALOGE("unkown color format");
+            return -1;
+     }
+}
+
 
 } // namespace android
