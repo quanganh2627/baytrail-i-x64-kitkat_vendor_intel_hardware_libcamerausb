@@ -177,16 +177,22 @@ void EXIFFields::setHardwareFields(float focalLength,            // num/denom
     mExif.max_aperture.den = mExif.fnumber.den;
 
     // exposure time
-    mExif.exposure_time.num = exposureTime;
-    mExif.exposure_time.den = 10000;
+    mExif.exposure_time.num = exposureTime * 10000;
+    mExif.exposure_time.den = mExif.exposure_time.num ? 10000 : 0;
     LOG1("EXIF: exposure time=%u", exposureTime);
 
     // shutter speed, = -log2(exposure time)
-    float exp_t = (float)(exposureTime / 10000.0);
-    float shutter = -1.0 * (log10(exp_t) / log10(2.0));
-    mExif.shutter_speed.num = (shutter * 10000);
-    mExif.shutter_speed.den = 10000;
-    LOG1("EXIF: shutter speed=%.2f", shutter);
+    mExif.shutter_speed.den = 0;
+    if (mExif.exposure_time.den) {
+        float exp_t = (float)(exposureTime / 10000.0);
+        float shutter = -1.0 * (log10(exp_t) / log10(2.0));
+        mExif.shutter_speed.num = (shutter * 10000);
+        mExif.shutter_speed.den = 10000;
+        LOG1("EXIF: shutter speed=%.2f", shutter);
+    }
+
+    // flash
+    mExif.flash = EXIF_DEF_FLASH;
 
     // aperture
     mExif.aperture.num = 100*(int)((1.0*mExif.fnumber.num/mExif.fnumber.den) * sqrt(100.0/aperture));

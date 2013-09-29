@@ -126,12 +126,19 @@ jpg_return_status JpegEncoder::makeExif (unsigned char *exifOut,
     pCur = pIfdStart + LongerTagOffest;
 
     tmp = NUM_0TH_IFD_EXIF;
+    if (!exifInfo->exposure_time.den)
+        tmp--;
+    if (!exifInfo->shutter_speed.den)
+        tmp--;
+
     memcpy(pCur, &tmp , NUM_SIZE);
     pCur += NUM_SIZE;
 
     LongerTagOffest += NUM_SIZE + NUM_0TH_IFD_EXIF*IFD_SIZE + OFFSET_SIZE;
-    writeExifIfd(&pCur, EXIF_TAG_EXPOSURE_TIME, EXIF_TYPE_RATIONAL,
-                 1, &exifInfo->exposure_time, &LongerTagOffest, pIfdStart);
+    if (exifInfo->exposure_time.den) {
+        writeExifIfd(&pCur, EXIF_TAG_EXPOSURE_TIME, EXIF_TYPE_RATIONAL,
+                     1, &exifInfo->exposure_time, &LongerTagOffest, pIfdStart);
+    }
     writeExifIfd(&pCur, EXIF_TAG_FNUMBER, EXIF_TYPE_RATIONAL,
                  1, &exifInfo->fnumber, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_EXPOSURE_PROGRAM, EXIF_TYPE_SHORT,
@@ -146,8 +153,10 @@ jpg_return_status JpegEncoder::makeExif (unsigned char *exifOut,
                  20, exifInfo->date_time, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_COMPONENTS_CONFIGURATION, EXIF_TYPE_UNDEFINED,
                  4, exifInfo->components_configuration);
-    writeExifIfd(&pCur, EXIF_TAG_SHUTTER_SPEED, EXIF_TYPE_SRATIONAL,
-                 1, (rational_t *)&exifInfo->shutter_speed, &LongerTagOffest, pIfdStart);
+    if (exifInfo->shutter_speed.den) {
+        writeExifIfd(&pCur, EXIF_TAG_SHUTTER_SPEED, EXIF_TYPE_SRATIONAL,
+                     1, (rational_t *)&exifInfo->shutter_speed, &LongerTagOffest, pIfdStart);
+    }
     writeExifIfd(&pCur, EXIF_TAG_APERTURE, EXIF_TYPE_RATIONAL,
                  1, &exifInfo->aperture, &LongerTagOffest, pIfdStart);
     writeExifIfd(&pCur, EXIF_TAG_BRIGHTNESS, EXIF_TYPE_SRATIONAL,

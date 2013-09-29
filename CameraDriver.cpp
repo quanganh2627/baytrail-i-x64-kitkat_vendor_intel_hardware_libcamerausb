@@ -43,7 +43,8 @@
 
 // Zero doesn't work here.  Apps (e.g Gallery) use this as a
 // denominator and blow up with a FPE.
-#define DEFAULT_EXPOSURE_TIME 2
+// Zero will disable the exposure time in the exif
+#define DEFAULT_EXPOSURE_TIME 0
 
 
 namespace android {
