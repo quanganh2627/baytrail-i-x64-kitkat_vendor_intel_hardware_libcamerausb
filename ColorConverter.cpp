@@ -849,7 +849,7 @@ static status_t colorConvertYUV420(int dstFormat, int width, int height, void *s
         break;
     case V4L2_PIX_FMT_YUV420:
         stride = ALIGN(width,16);
-        RepaddingYV12(width, height,stride,stride,height,src,dst);
+        RepaddingYV12(width, height, width, stride, height, src, dst);
         break;
     default:
         ALOGE("Invalid color format (dest)");
@@ -962,7 +962,7 @@ int copyBufWithStride(void *dst, void *src, int width, int height, int srcstride
     }
     else
     {
-       ALOGE("@%s, unsupport format");
+       ALOGE("@%s, unsupport format", __FUNCTION__);
     }
     return 0;
 }
