@@ -23,7 +23,6 @@
 #include "CameraCommon.h"
 #include "JpegCompressor.h"
 #include "JpegEncoder.h" // for EXIF
-#include "VAConvertor.h"
 
 namespace android {
 
@@ -59,7 +58,7 @@ public:
 // public methods
 public:
 
-    status_t encode(CameraBuffer *snaphotBuf,CameraBuffer *interBuf=NULL,CameraBuffer *postviewBuf = NULL);
+    status_t encode(CameraBuffer *snaphotBuf, CameraBuffer *postviewBuf = NULL);
     void getDefaultParameters(CameraParameters *params);
     void setConfig(Config *config);
     status_t flushBuffers();
@@ -84,7 +83,6 @@ private:
 
     struct MessageEncode {
         CameraBuffer *snaphotBuf;
-        CameraBuffer *interBuf;
         CameraBuffer *postviewBuf;
     };
 
@@ -112,7 +110,7 @@ private:
     // main message function
     status_t waitForAndExecuteMessage();
 
-    status_t encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer *destBuf,int picture_stride,int thumbnail_stride,int alignPicHeight,int alignThumHeight);
+    status_t encodeToJpeg(CameraBuffer *mainBuf, CameraBuffer *thumbBuf, CameraBuffer *destBuf);
 
 // inherited from Thread
 private:
@@ -132,8 +130,6 @@ private:
     int mMaxOutDataSize;
     unsigned char* mExifBuf;//temporary buffer to hold exif data
     Config mConfig;
-    VAConvertor *mVaConvertor;
-    int mInputFormat;
 
 // public data
 public:

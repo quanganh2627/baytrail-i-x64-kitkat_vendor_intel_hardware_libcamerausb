@@ -21,8 +21,6 @@
 #include <utils/threads.h>
 #include "MessageQueue.h"
 #include "CameraCommon.h"
-#include "VAConvertor.h"
-
 
 namespace android {
 
@@ -46,7 +44,7 @@ public:
 
     // Input and output buffer supplied only if color conversion is required.
     // If no color conversion is required simply supply the input buffer
-    status_t video(CameraBuffer *buff, CameraBuffer *interbuff, nsecs_t timestamp);
+    status_t video(CameraBuffer *buff, nsecs_t timestamp);
     status_t flushBuffers();
 
 // private types
@@ -68,8 +66,7 @@ private:
     //
 
     struct MessageVideo {
-        CameraBuffer* yuv422hbuff;
-        CameraBuffer* nv12buff;
+        CameraBuffer* buff;
         nsecs_t timestamp;
     };
 
@@ -112,8 +109,6 @@ private:
     int mOutputFormat;
     int mWidth;
     int mHeight;
-
-    VAConvertor *mVaConvertor;
 
 }; // class VideoThread
 

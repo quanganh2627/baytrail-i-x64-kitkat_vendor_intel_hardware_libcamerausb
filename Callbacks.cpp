@@ -93,25 +93,10 @@ void Callbacks::previewFrameDone(CameraBuffer *buff)
 
 void Callbacks::videoFrameDone(CameraBuffer *buff, nsecs_t timestamp)
 {
-    void *addr[3];
-    int size;
-    camera_memory_t *p = NULL;
     LOG2("@%s", __FUNCTION__);
     if ((mMessageFlags & CAMERA_MSG_VIDEO_FRAME) && mDataCBTimestamp != NULL) {
         buff->incrementProcessor();
-        buff->LockGrallocData((void**)&addr,&size);
-        if(mStoreMetaDataInBuffers)
-        {
-            ALOGE("mStoreMetaDataInBuffers");
-            p = buff->metadata_buff;
-        }
-        else
-        {
-            p = new camera_memory_t;
-            p->data = addr[0];
-            p->size = size;
-            p->release = NULL;//need to change
-        }
+        camera_memory_t *p = mStoreMetaDataInBuffers ? buff->metadata_buff : buff->getCameraMem();
         LOG2("@%s, send recording buff:0x%p", __FUNCTION__, p);
         mDataCBTimestamp(timestamp, CAMERA_MSG_VIDEO_FRAME, p, 0, mUserToken);
         //decrement will be done when buffer is released by client in ControlThread

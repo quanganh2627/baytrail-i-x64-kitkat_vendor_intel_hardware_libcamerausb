@@ -22,7 +22,6 @@
 namespace android {
 
 status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void *src, void *dst);
-status_t colorConvertwithStride(int srcFormat, int dstFormat, int stride,int width, int alignHeight, int height, void *src, void *dst);
 
 const char *cameraParametersFormat(int v4l2Format);
 int V4L2Format(const char *cameraParamsFormat);
@@ -31,10 +30,6 @@ void YU16ToNV12(int width, int height, void *src, void *dst);
 void YU16ToYUYV(int width, int height, void *src, void *dst);
 void YV12ToNV12(int width, int height, void *src, void *dst);
 void NV12ToP411(int width, int height, void *src, void *dst);
-int V4L2ToLumaBitsPerPixel(int format);
-int V4L2FormatToHalPixel(int format);
-int HalPixelToV4L2Format(int format);
-
 
 }; // namespace android
 

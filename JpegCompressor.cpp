@@ -151,10 +151,10 @@ JpegCompressor::~JpegCompressor()
     }
 }
 
-bool JpegCompressor::convertRawImage(void* src, void* dst, int stride, int width,int alignHeight,int height, int format)
+bool JpegCompressor::convertRawImage(void* src, void* dst, int width, int height, int format)
 {
     LOG1("@%s", __FUNCTION__);
-    return colorConvertwithStride(format, V4L2_PIX_FMT_RGB565,stride, width,alignHeight,height, src, dst) == NO_ERROR;
+    return colorConvert(format, V4L2_PIX_FMT_RGB565, width, height, src, dst) == NO_ERROR;
 }
 
 // Takes YUV data (NV12 or YUV420) and outputs JPEG encoded stream
@@ -187,7 +187,7 @@ int JpegCompressor::encode(const InputBuffer &in, const OutputBuffer &out)
             mJpegSize = -1;
             goto exit;
         }
-        bool success = convertRawImage((void*)in.buf, (void*)out.buf, in.stride,in.width,in.alignHeight,in.height,in.format);
+        bool success = convertRawImage((void*)in.buf, (void*)out.buf, in.width, in.height, in.format);
         if (!success) {
             ALOGE("Could not convert the raw image!");
             mJpegSize = -1;

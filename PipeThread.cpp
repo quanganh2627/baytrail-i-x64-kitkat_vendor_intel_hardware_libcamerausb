@@ -20,8 +20,6 @@
 #include "LogHelper.h"
 #include "VideoThread.h"
 #include "PreviewThread.h"
-#include "VAConvertor.h"
-#include "DumpImage.h"
 
 namespace android {
 
@@ -62,7 +60,7 @@ void PipeThread::setConfig(int inputFormat, int outputFormat, int width, int hei
     mHeight = height;
 }
 
-status_t PipeThread::preview(CameraBuffer *input, CameraBuffer *output,CameraBuffer *midConvert)
+status_t PipeThread::preview(CameraBuffer *input, CameraBuffer *output)
 {
     LOG2("@%s", __FUNCTION__);
     Message msg;
@@ -70,7 +68,6 @@ status_t PipeThread::preview(CameraBuffer *input, CameraBuffer *output,CameraBuf
     msg.id = MESSAGE_ID_PREVIEW;
     msg.data.preview.input = input;
     msg.data.preview.output = output;
-    msg.data.preview.midConvert = midConvert;
     if ((ret = mMessageQueue.send(&msg)) == NO_ERROR) {
         if (input != 0)
             input->incrementProcessor();
@@ -80,7 +77,7 @@ status_t PipeThread::preview(CameraBuffer *input, CameraBuffer *output,CameraBuf
     return ret;
 }
 
-status_t PipeThread::previewVideo(CameraBuffer *input, CameraBuffer *output,CameraBuffer *toAndroid,CameraBuffer *midConvert, nsecs_t timestamp)
+status_t PipeThread::previewVideo(CameraBuffer *input, CameraBuffer *output, nsecs_t timestamp)
 {
     LOG2("@%s", __FUNCTION__);
     Message msg;
@@ -88,16 +85,12 @@ status_t PipeThread::previewVideo(CameraBuffer *input, CameraBuffer *output,Came
     msg.id = MESSAGE_ID_PREVIEW_VIDEO;
     msg.data.previewVideo.input = input;
     msg.data.previewVideo.output = output;
-    msg.data.previewVideo.toAndroid = toAndroid;
-    msg.data.previewVideo.midConvert = midConvert;
     msg.data.previewVideo.timestamp = timestamp;
     if ((ret = mMessageQueue.send(&msg)) == NO_ERROR) {
         if (input != 0)
             input->incrementProcessor();
         if (output != 0)
             output->incrementProcessor();
-        if (toAndroid != 0)
-            toAndroid->incrementProcessor();
     }
     return ret;
 }
@@ -125,11 +118,14 @@ status_t PipeThread::handleMessagePreview(MessagePreview *msg)
     LOG2("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
 
+    status = colorConvert(mInputFormat, mOutputFormat, mWidth, mHeight,
+            msg->input->getData(), msg->output->getData());
+
     if (status == NO_ERROR) {
         CameraBuffer *previewIn = msg->input;
         CameraBuffer *previewOut = msg->output;
-        CameraBuffer *midConvert = msg->midConvert;
-        status = mPreviewThread->preview(previewIn, previewOut,midConvert);
+
+        status = mPreviewThread->preview(previewIn, previewOut);
         if (status != NO_ERROR) {
             ALOGE("failed to send preview buffer");
         }
@@ -144,16 +140,16 @@ status_t PipeThread::handleMessagePreviewVideo(MessagePreviewVideo *msg)
     LOG2("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
 
+    YV12ToNV12(mWidth, mHeight, msg->input->getData(), msg->output->getData());
 
     if (status == NO_ERROR) {
-        CameraBuffer *previewIn = msg->input;//yuv422h
-        CameraBuffer *previewOut = msg->toAndroid;//memory heap
-        CameraBuffer *midConvert = msg->midConvert;
+        CameraBuffer *previewIn = msg->input;
+        CameraBuffer *previewOut = NULL;//msg->output;
         CameraBuffer *video = msg->output;
 
-        status = mPreviewThread->preview(previewIn, previewOut,midConvert);
+        status = mPreviewThread->preview(previewIn, previewOut);
         if (status == NO_ERROR) {
-            status = mVideoThread->video(previewIn,video,msg->timestamp);
+            status = mVideoThread->video(video, msg->timestamp);
             if (status != NO_ERROR) {
                 ALOGE("failed to send preview buffer");
             }
@@ -164,7 +160,6 @@ status_t PipeThread::handleMessagePreviewVideo(MessagePreviewVideo *msg)
     //we are done with the buffer
     msg->input->decrementProccessor();
     msg->output->decrementProccessor();
-    msg->toAndroid->decrementProccessor();
     return status;
 }
 

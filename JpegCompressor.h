@@ -40,7 +40,7 @@ class JpegCompressor {
     bool mStartCompressDone;
 #endif
 
-    bool convertRawImage(void* src, void* dst, int stride, int width,int alignHeight,int height, int format);
+    bool convertRawImage(void* src, void* dst, int width, int height, int format);
 
 public:
     JpegCompressor();
@@ -53,8 +53,6 @@ public:
         int height;
         int format;
         int size;
-        int stride;
-        int alignHeight;
 
         void clear()
         {

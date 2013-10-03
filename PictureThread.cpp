@@ -16,13 +16,10 @@
 #define LOG_TAG "Camera_PictureThread"
 
 #include "CameraBufferAllocator.h"
-#include "ColorConverter.h"
 #include "PictureThread.h"
 #include "LogHelper.h"
 #include "Callbacks.h"
-#include "DumpImage.h"
-#include "VAConvertor.h"
-
+#include "ColorConverter.h"
 #include <utils/Timers.h>
 #include <assert.h>
 namespace android {
@@ -38,8 +35,6 @@ PictureThread::PictureThread() :
     ,mCallbacks(Callbacks::getInstance())
     ,mOutData(NULL)
     ,mExifBuf(NULL)
-    ,mVaConvertor(new VAConvertor())
-    ,mInputFormat(V4L2_PIX_FMT_YUV422P)
 {
     LOG1("@%s", __FUNCTION__);
 }
@@ -53,8 +48,6 @@ PictureThread::~PictureThread()
     if (mExifBuf != NULL) {
         delete[] mExifBuf;
     }
-    if(mVaConvertor !=NULL)
-       delete mVaConvertor;
 }
 
 /*
@@ -64,8 +57,7 @@ PictureThread::~PictureThread()
  * Output: destBuf  - buffer containing the final JPEG image including EXIF header
  *         Note that, if present, thumbBuf will be included in EXIF header
  */
-
-status_t PictureThread::encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer *destBuf,int picture_stride,int thumbnail_stride,int alignPicHeight,int alignThumHeight)
+status_t PictureThread::encodeToJpeg(CameraBuffer *mainBuf, CameraBuffer *thumbBuf, CameraBuffer *destBuf)
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
@@ -81,14 +73,12 @@ status_t PictureThread::encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer
 
         // setup the JpegCompressor input and output buffers
         mEncoderInBuf.clear();
-        mEncoderInBuf.buf = (unsigned char*)thumbBuf;
+        mEncoderInBuf.buf = (unsigned char*)thumbBuf->getData();
         mEncoderInBuf.width = mConfig.thumbnail.width;
         mEncoderInBuf.height = mConfig.thumbnail.height;
         mEncoderInBuf.format = mConfig.thumbnail.format;
-        mEncoderInBuf.stride = thumbnail_stride;
-        mEncoderInBuf.alignHeight = alignThumHeight;
         mEncoderInBuf.size = frameSize(mConfig.thumbnail.format,
-                thumbnail_stride,
+                mConfig.thumbnail.width,
                 mConfig.thumbnail.height);
         mEncoderOutBuf.clear();
         mEncoderOutBuf.buf = mOutData;
@@ -128,15 +118,13 @@ status_t PictureThread::encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer
     // Convert and encode the main picture image
     // setup the JpegCompressor input and output buffers
     mEncoderInBuf.clear();
-    mEncoderInBuf.buf = (unsigned char *) mainBuf;
+    mEncoderInBuf.buf = (unsigned char *) mainBuf->getData();
 
     mEncoderInBuf.width = mConfig.picture.width;
     mEncoderInBuf.height = mConfig.picture.height;
     mEncoderInBuf.format = mConfig.picture.format;
-    mEncoderInBuf.stride = picture_stride;
-    mEncoderInBuf.alignHeight = alignPicHeight;
     mEncoderInBuf.size = frameSize(mConfig.picture.format,
-            picture_stride,
+            mConfig.picture.width,
             mConfig.picture.height);
     mEncoderOutBuf.clear();
     mEncoderOutBuf.buf = (unsigned char*)mOutData;
@@ -175,29 +163,21 @@ status_t PictureThread::encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer
 }
 
 
-status_t PictureThread::encode(CameraBuffer *snaphotBuf,CameraBuffer *interBuf, CameraBuffer *postviewBuf)
+status_t PictureThread::encode(CameraBuffer *snaphotBuf, CameraBuffer *postviewBuf)
 {
     LOG1("@%s", __FUNCTION__);
     Message msg;
     msg.id = MESSAGE_ID_ENCODE;
     msg.data.encode.snaphotBuf = snaphotBuf;
-    msg.data.encode.interBuf= interBuf;
     msg.data.encode.postviewBuf = postviewBuf;
     status_t ret = INVALID_OPERATION;
 
     if (snaphotBuf != 0)
         snaphotBuf->incrementProcessor();
-    if (interBuf != 0)
-        interBuf->incrementProcessor();
-    if (postviewBuf != 0)
-        postviewBuf->incrementProcessor();
+
     if ((ret = mMessageQueue.send(&msg)) != NO_ERROR) {
         if (snaphotBuf != 0)
             snaphotBuf->decrementProccessor();
-        if (interBuf != 0)
-            interBuf->decrementProccessor();
-        if (postviewBuf != 0)
-            postviewBuf->decrementProccessor();
     }
     return ret;
 }
@@ -255,71 +235,26 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
     int exifSize = 0;
     int totalSize = 0;
     CameraBuffer jpegBuf;
-    void *snapshotbuff[3];
-    void *thumbnailbuff[3];
-    int size=0;
-    int alignPicHeight=0;
-    int alignThumbnailHeight=0;
 
     if (mConfig.picture.width == 0 ||
         mConfig.picture.height == 0 ||
         mConfig.picture.format == 0) {
         ALOGE("Picture information not set yet!");
         if (msg->snaphotBuf != NULL)
-        {
-           msg->snaphotBuf->decrementProccessor();
-           msg->interBuf->decrementProccessor();
-        }
-        return UNKNOWN_ERROR;
-    }
-    if((msg->snaphotBuf == NULL) || (msg->interBuf == NULL))
-    {
-        ALOGE("snaphotBuf or interBuf is NULL!");
+            msg->snaphotBuf->decrementProccessor();
         return UNKNOWN_ERROR;
     }
 
     // Encode the image
-    alignPicHeight = ALIGN(mConfig.picture.height,32);
-    mVaConvertor->VPPBitBlit(msg->snaphotBuf->GetRenderTargetHandle(),msg->interBuf->GetRenderTargetHandle());
-    if(mConfig.exif.enableThumb)
-    {
-         if(msg->postviewBuf == NULL)
-         {
-             ALOGE("postviewBuf is NULL!");
-             return UNKNOWN_ERROR;
-         }
-         alignThumbnailHeight = ALIGN(mConfig.thumbnail.height,32);
-         mVaConvertor->VPPBitBlit(msg->interBuf->GetRenderTargetHandle(),msg->postviewBuf->GetRenderTargetHandle());
-         msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
-         msg->interBuf->LockGrallocData(snapshotbuff,&size);
-         if ((status = encodeToJpeg(snapshotbuff[0], thumbnailbuff[0], &jpegBuf,msg->interBuf->GetGraStride(),msg->postviewBuf->GetGraStride(),alignPicHeight,alignThumbnailHeight)) == NO_ERROR) {
-               mCallbacks->compressedRawFrameDone(msg->snaphotBuf);
-               mCallbacks->compressedFrameDone(&jpegBuf);
-         } else {
-           ALOGE("Error generating JPEG image!");
-         }
-         msg->postviewBuf->UnLockGrallocData();
-         msg->interBuf->UnLockGrallocData();
-    }
-    else
-    {
-         msg->interBuf->LockGrallocData(snapshotbuff,&size);
-         if ((status = encodeToJpeg(snapshotbuff[0], NULL, &jpegBuf,msg->interBuf->GetGraStride(),0,alignPicHeight,0)) == NO_ERROR) {
-               mCallbacks->compressedRawFrameDone(msg->snaphotBuf);
-               mCallbacks->compressedFrameDone(&jpegBuf);
-         } else {
-           ALOGE("Error generating JPEG image!");
-         }
-         msg->interBuf->UnLockGrallocData();
+    if ((status = encodeToJpeg(msg->snaphotBuf, msg->postviewBuf, &jpegBuf)) == NO_ERROR) {
+        mCallbacks->compressedRawFrameDone(msg->snaphotBuf);
+        mCallbacks->compressedFrameDone(&jpegBuf);
+    } else {
+        ALOGE("Error generating JPEG image!");
     }
     // When the encoding is done, send back the buffers to camera
     if (msg->snaphotBuf != NULL)
         msg->snaphotBuf->decrementProccessor();
-    if (msg->interBuf!= NULL)
-        msg->interBuf->decrementProccessor();
-    if (msg->postviewBuf!= NULL)
-        msg->postviewBuf->decrementProccessor();
-
     LOG1("Releasing jpegBuf @%p", jpegBuf.getData());
     jpegBuf.releaseMemory();
 

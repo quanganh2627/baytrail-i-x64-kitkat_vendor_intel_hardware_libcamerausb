@@ -20,8 +20,6 @@
 #include <stdio.h>
 #include "CameraBuffer.h"
 #include "IntelMetadataBuffer.h"
-#include "videovpp/VideoVPPBase.h"
-#include "GraphicBufferAllocator.h"
 
 //This file define the general configuration for the camera driver
 
@@ -31,7 +29,7 @@
 
 // macro CLIP is used to clip the Number value to between the Min and Max
 #define CLIP(Number, Max, Min)    ((Number) > (Max) ? (Max) : ((Number) < (Min) ? (Min) : (Number)))
-#define ALIGN(x, align)                  (((x) + (align) - 1) & (~((align) - 1)))
+#define ALIGN16(x) (((x) + 15) & ~15)
 
 
 namespace android {
@@ -52,8 +50,8 @@ static int frameSize(int format, int width, int height)
     int uvplansize = 0;
     switch (format) {
         case V4L2_PIX_FMT_YUV420:
-            yplansize = ALIGN(width,16) * height; //Android CTS verifier required: y plane needs 16 bytes aligned!
-            uvplansize = ALIGN(width >> 1,16) * height;//Android CTS verifier required: U/V plane needs 16 bytes aligned!
+            yplansize = ALIGN16(width) * height; //Android CTS verifier required: y plane needs 16 bytes aligned!
+            uvplansize = ALIGN16(width >> 1) * height;//Android CTS verifier required: U/V plane needs 16 bytes aligned!
             size = yplansize + uvplansize;
             break;
         case V4L2_PIX_FMT_YVU420:

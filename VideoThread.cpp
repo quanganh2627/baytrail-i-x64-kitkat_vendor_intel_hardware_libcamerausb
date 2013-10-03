@@ -19,7 +19,6 @@
 #include "LogHelper.h"
 #include "Callbacks.h"
 #include "ColorConverter.h"
-#include "DumpImage.h"
 
 namespace android {
 
@@ -32,7 +31,6 @@ VideoThread::VideoThread() :
     ,mOutputFormat(V4L2_PIX_FMT_NV21)
     ,mWidth(640)  // VGA
     ,mHeight(480) // VGA
-    ,mVaConvertor(new VAConvertor())
 {
     LOG1("@%s", __FUNCTION__);
 }
@@ -40,8 +38,6 @@ VideoThread::VideoThread() :
 VideoThread::~VideoThread()
 {
     LOG1("@%s", __FUNCTION__);
-    if(mVaConvertor !=NULL)
-       delete mVaConvertor;
 }
 
 status_t VideoThread::setConfig(int inputFormat, int outputFormat, int width, int height)
@@ -54,26 +50,16 @@ status_t VideoThread::setConfig(int inputFormat, int outputFormat, int width, in
     return NO_ERROR;
 }
 
-status_t VideoThread::video(CameraBuffer *buff, CameraBuffer *interbuff,nsecs_t timestamp)
+status_t VideoThread::video(CameraBuffer *buff, nsecs_t timestamp)
 {
     LOG2("@%s", __FUNCTION__);
     Message msg;
     status_t ret = INVALID_OPERATION;
     msg.id = MESSAGE_ID_VIDEO;
-    msg.data.video.yuv422hbuff= buff;
-    msg.data.video.nv12buff= interbuff;
+    msg.data.video.buff= buff;
     msg.data.video.timestamp = timestamp;
-    if ((ret = mMessageQueue.send(&msg)) == NO_ERROR)
-    {
-       if(buff != 0)
-       {
-          buff->incrementProcessor();
-       }
-       if(interbuff !=0)
-       {
-          interbuff->incrementProcessor();
-       }
-    }
+    if ((ret = mMessageQueue.send(&msg)) == NO_ERROR && buff != 0)
+        buff->incrementProcessor();
     return ret;
 }
 
@@ -98,17 +84,10 @@ status_t VideoThread::handleMessageVideo(MessageVideo *msg)
 {
     LOG2("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
-    if((msg->yuv422hbuff == NULL) || (msg->nv12buff == NULL))
-    {
-        ALOGE("yuv422hbuff or nv12buff is NULL!");
-        return UNKNOWN_ERROR;
-    }
-    mVaConvertor->VPPBitBlit(msg->yuv422hbuff->GetRenderTargetHandle(),msg->nv12buff->GetRenderTargetHandle());
-    mCallbacks->videoFrameDone(msg->nv12buff, msg->timestamp);
-    if (msg->yuv422hbuff != 0)
-        msg->yuv422hbuff->decrementProccessor();
-    if (msg->nv12buff != 0)
-        msg->nv12buff->decrementProccessor();
+
+    mCallbacks->videoFrameDone(msg->buff, msg->timestamp);
+    if (msg->buff != 0)
+        msg->buff->decrementProccessor();
 
     return status;
 }

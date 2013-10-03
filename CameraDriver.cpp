@@ -27,9 +27,7 @@
 #include <cutils/properties.h>
 #include <utils/String8.h>
 #include "CameraBufferAllocator.h"
-#include "VAConvertor.h"
-#include "DumpImage.h"
-
+#include "JpegDecoder.h"
 
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
 
@@ -219,7 +217,10 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
        params->set(CameraParameters::KEY_FOCUS_MODE, CameraParameters::FOCUS_MODE_FIXED);
        params->set(CameraParameters::KEY_SUPPORTED_FOCUS_MODES, CameraParameters::FOCUS_MODE_FIXED);
        params->set(CameraParameters::KEY_MAX_NUM_FOCUS_AREAS, 0);
-       params->setFloat(CameraParameters::KEY_FOCAL_LENGTH, 10.0);
+
+       float focalLength = 10; // focalLength unit is mm
+       params->setFloat(CameraParameters::KEY_FOCAL_LENGTH, focalLength);
+
     }  else {
         LOG1("Get Default Parameters for Rear Camera ");
 
@@ -265,7 +266,7 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
 
 }
 
-status_t CameraDriver::start(Mode mode,RenderTarget **all_targets,int targetBufNum)
+status_t CameraDriver::start(Mode mode)
 {
     LOG1("@%s", __FUNCTION__);
     LOG1("mode = %d", mode);
@@ -273,15 +274,15 @@ status_t CameraDriver::start(Mode mode,RenderTarget **all_targets,int targetBufN
 
     switch (mode) {
     case MODE_PREVIEW:
-        status = startPreview(all_targets,targetBufNum);
+        status = startPreview();
         break;
 
     case MODE_VIDEO:
-        status = startRecording(all_targets,targetBufNum);
+        status = startRecording();
         break;
 
     case MODE_CAPTURE:
-        status = startCapture(all_targets,targetBufNum);
+        status = startCapture();
         break;
 
     default:
@@ -324,7 +325,7 @@ status_t CameraDriver::stop()
     return status;
 }
 
-status_t CameraDriver::startPreview(RenderTarget **all_targets,int targetBufNum)
+status_t CameraDriver::startPreview()
 {
     LOG1("@%s", __FUNCTION__);
     int ret = 0;
@@ -341,9 +342,7 @@ status_t CameraDriver::startPreview(RenderTarget **all_targets,int targetBufNum)
             MODE_PREVIEW,
             mConfig.preview.padding,
             mConfig.preview.height,
-            NUM_DEFAULT_BUFFERS,
-            all_targets,
-            targetBufNum);
+            NUM_DEFAULT_BUFFERS);
     if (ret < 0) {
         ALOGE("Configure device failed!");
         status = UNKNOWN_ERROR;
@@ -379,7 +378,7 @@ status_t CameraDriver::stopPreview()
     return NO_ERROR;
 }
 
-status_t CameraDriver::startRecording(RenderTarget **all_targets,int targetBufNum)
+status_t CameraDriver::startRecording()
 {
     LOG1("@%s", __FUNCTION__);
     int ret = 0;
@@ -396,9 +395,7 @@ status_t CameraDriver::startRecording(RenderTarget **all_targets,int targetBufNu
             MODE_VIDEO,
             mConfig.preview.padding,
             mConfig.preview.height,
-            NUM_DEFAULT_BUFFERS,
-            all_targets,
-            targetBufNum);
+            NUM_DEFAULT_BUFFERS);
     if (ret < 0) {
         ALOGE("Configure device failed!");
         status = UNKNOWN_ERROR;
@@ -431,7 +428,8 @@ status_t CameraDriver::stopRecording()
 
     return NO_ERROR;
 }
-status_t CameraDriver::startCapture(RenderTarget **all_targets,int targetBufNum)
+
+status_t CameraDriver::startCapture()
 {
     LOG1("@%s", __FUNCTION__);
     int ret = 0;
@@ -448,9 +446,7 @@ status_t CameraDriver::startCapture(RenderTarget **all_targets,int targetBufNum)
             MODE_CAPTURE,
             mConfig.snapshot.width,
             mConfig.snapshot.height,
-            NUM_DEFAULT_BUFFERS,
-            all_targets,
-            targetBufNum);
+            NUM_DEFAULT_BUFFERS);
     if (ret < 0) {
         ALOGE("Configure device failed!");
         status = UNKNOWN_ERROR;
@@ -487,11 +483,10 @@ status_t CameraDriver::stopCapture()
     return NO_ERROR;
 }
 
-int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers,RenderTarget **all_targets,int targetBufNum)
+int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers)
 {
     LOG1("@%s", __FUNCTION__);
     int ret = 0;
-    status_t status = NO_ERROR;
     LOG1("width:%d, height:%d, deviceMode:%d",
             w, h, deviceMode);
 
@@ -509,15 +504,8 @@ int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers,
 
     String8 mode = String8::format("%dx%d", w, h);
     if(mJpegModes.find(mode) != mJpegModes.end()) {
-        mJpegDecoder = new JpegDecoder();
-        if(mJpegDecoder == NULL)
-        {
-            ALOGE("create JpegDecoder failed");
-            return -1;
-        }
-        status = mJpegDecoder->init(w,h,all_targets,targetBufNum);
-        if(status != JD_SUCCESS) {
-            LOGE("init JpegDecoder failed");
+        mJpegDecoder = new JpegDecoder(w, h);
+        if(!mJpegDecoder->valid()) {
             delete mJpegDecoder;
             mJpegDecoder = NULL;
             return -1;
@@ -530,7 +518,7 @@ int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers,
     if (ret < 0)
         return ret;
 
-    status = allocateBuffers(numBuffers, w, h, mFormat);
+    status_t status = allocateBuffers(numBuffers, w, h, mFormat);
     if (status != NO_ERROR) {
         ALOGE("error allocating buffers");
         ret = -1;
@@ -710,6 +698,7 @@ status_t CameraDriver::allocateBuffers(int numBuffers, int w, int h, int format)
 
     mBufferPool.bufs = new DriverBuffer[numBuffers];
 
+    mBufferPool.thumbnail = new CameraBuffer();
     status_t status = NO_ERROR;
     for (int i = 0; i < numBuffers; i++) {
         status = allocateBuffer(fd, i, w, h, format);
@@ -728,6 +717,7 @@ fail:
     }
 
     delete [] mBufferPool.bufs;
+    delete mBufferPool.thumbnail;
     memset(&mBufferPool, 0, sizeof(mBufferPool));
 
     return status;
@@ -758,6 +748,9 @@ status_t CameraDriver::freeBuffers()
         freeBuffer(i);
     }
 
+    if(mBufferPool.thumbnail != NULL){
+        mBufferPool.thumbnail->releaseMemory();
+    }
     LOG1("VIDIOC_REQBUFS, count=%d", reqBuf.count);
     ret = ioctl(fd, VIDIOC_REQBUFS, &reqBuf);
 
@@ -768,6 +761,7 @@ status_t CameraDriver::freeBuffers()
     }
 
     delete [] mBufferPool.bufs;
+    delete mBufferPool.thumbnail;
     memset(&mBufferPool, 0, sizeof(mBufferPool));
 
     return NO_ERROR;
@@ -796,12 +790,39 @@ status_t CameraDriver::queueBuffer(CameraBuffer *buff, bool init)
 
     return NO_ERROR;
 }
-status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yuvbuff, nsecs_t *timestamp, bool forJpeg)
+
+void CameraDriver::write_image(const void *data, const int size, int width, int height,
+                       const char *name)
+{
+    char filename[80];
+    static unsigned int count = 0;
+    unsigned int i;
+    size_t bytes;
+    FILE *fp;
+
+    snprintf(filename, sizeof(filename), "/data/nv12/dump_%d_%d_%03u_%s", width,
+             height, count, name);
+
+    fp = fopen (filename, "w+");
+    if (fp == NULL) {
+        LOGE ("open file %s failed %s", filename, strerror (errno));
+        return ;
+    }
+
+    if ((bytes = fwrite (data, size, 1, fp)) < (size_t)size)
+        LOGW ("Write less raw bytes to %s: %d, %d", filename, size, bytes);
+
+    count++;
+
+    fclose (fp);
+}
+
+
+status_t CameraDriver::dequeueBuffer(CameraBuffer **buff, nsecs_t *timestamp, bool forJpeg)
 {
     int ret;
     int fd = mCameraSensor[mCameraId]->fd;
     struct v4l2_buffer vbuff;
-    RenderTarget *cur_target = yuvbuff->mDecTargetBuf;
 
     vbuff.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     vbuff.memory = V4L2_MEMORY_USERPTR;
@@ -815,7 +836,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
     CameraBuffer *camBuff = &mBufferPool.bufs[vbuff.index].camBuff;
     camBuff->mID = vbuff.index;
     camBuff->mDriverPrivate = mSessionId;
-    *driverbuff = camBuff;
+    *buff = camBuff;
 
     if (timestamp)
         *timestamp = systemTime();
@@ -826,63 +847,25 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
         void * pSrc = camBuff->getData();
         int len = vbuff.bytesused;
 
-        //write_image(pSrc, len, mConfig.preview.width, mConfig.preview.height, ".jpeg"); 
-        JpegInfo *jpginfo = new JpegInfo();
-        int status = 0;
+        mJpegDecoder->configOutputFormat(forJpeg ? JpegDecoder::OUTPUT_FORMAT_YUYV : JpegDecoder::OUTPUT_FORMAT_YV12);
+//        write_image(pSrc, len, mConfig.preview.width, mConfig.preview.height, ".jpeg");
+        if(!mJpegDecoder->decodeJpeg((unsigned char *)pSrc, len)) {
+            return UNKNOWN_ERROR;
+        }
+//        write_image(mJpegDecoder->data(), mJpegDecoder->dataSize(), mConfig.preview.width, mConfig.preview.height, "yuyv.yuyv");
 
-        jpginfo->buf = (uint8_t *)pSrc;
-        jpginfo->bufsize = len;
-        status = mJpegDecoder->parse(*jpginfo);
-        if(status != 0)
-        {
-             ALOGE("parse fail for jpegdec");
-             delete jpginfo;
-             return status;
-        }
-        status = mJpegDecoder->decode(*jpginfo, *cur_target);
-        if(status != 0)
-        {
-            ALOGE("decoder fail");
-            delete jpginfo;
-            return status;
-        }
-        delete jpginfo;
-        LOG1("jpegdecoder over");
-        /*
-        //the following code is used for dump image after jpegdec with mapfunction in libjpegdec
-        uint8_t *data;
-        uint32_t offsets[3];
-        uint32_t pitches[3];
-        JpegDecoder::MapHandle maphandle = mJpegDecoder->mapData(*cur_target, (void**) &data, offsets, pitches);
-       if(maphandle.valid == 0)
-       {
-           LOGE("-----maphandle.valid == 0");
-       }
-       char filename[80];
-       snprintf(filename, sizeof(filename), "/data/nv12/dump_%d_%d_%03u_%s", yuvbuff->mDecTargetBuf->width,yuvbuff->mDecTargetBuf->height, count, "yuv422h.yuv");
-       count ++;
-
-       FILE* fpdump = fopen(filename, "wb");
-       if(fpdump == 0)
-       {
-           LOGE("-----fpdump == 0");
-       }
-        // Y
-        for (int i = 0; i < yuvbuff->mDecTargetBuf->height; ++i) {
-           fwrite(data + offsets[0] + i * pitches[0], 1, yuvbuff->mDecTargetBuf->width, fpdump);
-        }
-        // U
-        for (int i = 0; i < yuvbuff->mDecTargetBuf->height; ++i) {
-           fwrite(data + offsets[1] + i * pitches[1], 1, yuvbuff->mDecTargetBuf->width/2, fpdump);
-        }
-        // V
-        for (int i = 0; i < yuvbuff->mDecTargetBuf->height; ++i) {
-           fwrite(data + offsets[2] + i * pitches[2], 1, yuvbuff->mDecTargetBuf->width/2, fpdump);
-        }
-        fclose(fpdump);
-       printf("Dumped decoded YUV to /sdcard/dec_dump.yuv\n");
-       mJpegDecoder->unmapData(*cur_target, maphandle);
-       */
+        // This copy (from the mapped libva surface object back into
+        // the V4L2 camera buffer -- essentially pretending that the
+        // camera gave us YUY2 in the first place) is unfortunate.
+        // The libva driver has support for hardware accelerated color
+        // conversion already, so ideally we could take the decoded
+        // VASurface and convert it directly into the NV12 buffer
+        // destined for video encode, and the RGB buffer destined for
+        // on-screen preview (both of those are drm_intel_bo buffers
+        // under the hood!).  But unfortunately current libva lacks
+        // the ability to initialize a VAImage from an existing
+        // buffer...
+        memcpy(camBuff->getData(), mJpegDecoder->data(), mJpegDecoder->dataSize());
     }
 
     return NO_ERROR;
@@ -1447,13 +1430,14 @@ int CameraDriver::v4l2_capture_try_format(int fd, int *w, int *h)
     return 0;
 }
 
-status_t CameraDriver::getPreviewFrame(CameraBuffer **driverbuff,CameraBuffer *yuvbuff)
+status_t CameraDriver::getPreviewFrame(CameraBuffer **buff)
 {
     LOG2("@%s", __FUNCTION__);
 
     if (mMode == MODE_NONE)
         return INVALID_OPERATION;
-    return dequeueBuffer(driverbuff,yuvbuff);
+
+    return dequeueBuffer(buff);
 }
 
 status_t CameraDriver::putPreviewFrame(CameraBuffer *buff)
@@ -1465,14 +1449,14 @@ status_t CameraDriver::putPreviewFrame(CameraBuffer *buff)
     return queueBuffer(buff);;
 }
 
-status_t CameraDriver::getRecordingFrame(CameraBuffer **driverbuff, CameraBuffer *yuvbuff,nsecs_t *timestamp)
+status_t CameraDriver::getRecordingFrame(CameraBuffer **buff, nsecs_t *timestamp)
 {
     LOG2("@%s", __FUNCTION__);
 
     if (mMode == MODE_NONE)
         return INVALID_OPERATION;
 
-    return dequeueBuffer(driverbuff,yuvbuff, timestamp);
+    return dequeueBuffer(buff, timestamp);
 }
 
 status_t CameraDriver::putRecordingFrame(CameraBuffer *buff)
@@ -1484,14 +1468,14 @@ status_t CameraDriver::putRecordingFrame(CameraBuffer *buff)
     return queueBuffer(buff);;
 }
 
-status_t CameraDriver::getSnapshot(CameraBuffer **driverbuff, CameraBuffer *yuvbuff)
+status_t CameraDriver::getSnapshot(CameraBuffer **buff)
 {
     LOG2("@%s", __FUNCTION__);
 
     if (mMode == MODE_NONE)
         return INVALID_OPERATION;
 
-    return dequeueBuffer(driverbuff,yuvbuff, 0, true);
+    return dequeueBuffer(buff, 0, true);
 }
 
 status_t CameraDriver::putSnapshot(CameraBuffer *buff)
@@ -1502,6 +1486,33 @@ status_t CameraDriver::putSnapshot(CameraBuffer *buff)
 
     return queueBuffer(buff);;
 }
+
+status_t CameraDriver::getThumbnail(CameraBuffer *buff,CameraBuffer **inputBuffer,
+        int width, int height, int thumb_w, int thumb_h)
+{
+    LOG1("@%s: width = %d,height = %d,thumb_w = %d,thumb_h = %d", __FUNCTION__,width,height,thumb_w,thumb_h);
+    bool ret = NO_MEMORY;
+    *inputBuffer = mBufferPool.thumbnail;
+    mBufAlloc->allocateMemory(*inputBuffer, thumb_w * thumb_h * 2);
+    if( (unsigned char *)( *inputBuffer)->getData()  == NULL){
+        ALOGE("Fail to allocate thumbnail buf");
+        return ret;
+    }
+    int w_multil = width / thumb_w;
+    int h_multil = height / thumb_h;
+
+    // resize YUYV
+    LOG2("resize the the thumbnail");
+    int *src = (int *)buff->getData();
+    int *dst = (int *)(*inputBuffer)->getData();
+    for (int i = 0; i < thumb_h; i++) {
+        for (int j = 0; j+3 < (thumb_w << 1); j+=4) {
+            dst[(((thumb_w*i)<<1)+j)/4] = src[(((width*h_multil*i)<<1)+j*w_multil)/4];
+        }
+    }
+    return NO_ERROR;
+}
+
 status_t CameraDriver::putThumbnail(CameraBuffer *buff)
 {
     LOG1("@%s", __FUNCTION__);

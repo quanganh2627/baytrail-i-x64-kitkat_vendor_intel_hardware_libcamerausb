@@ -47,21 +47,14 @@ ControlThread::ControlThread(int cameraId) :
     ,mThreadRunning(false)
     ,mCallbacks(Callbacks::getInstance())
     ,mCallbacksThread(CallbacksThread::getInstance())
-    ,mNumBuffers(6)
+    ,mNumBuffers(mDriver->getNumBuffers())
     ,m_pFaceDetector(0)
     ,mFaceDetectionActive(false)
     ,mThumbSupported(false)
     ,mLastRecordingBuff(0)
     ,mCameraFormat(mDriver->getFormat())
     ,mStoreMetaDataInVideoBuffers(true)
-    ,mGraphicBufAlloc(new CamGraphicBufferAllocator())
-    ,mJpegdecBufferPool(0)
-    ,mNumJpegdecBuffers(6)
-    ,mVPPOutBufferPool(0)
-    ,mNumVPPOutBuffers(6)
-    ,mDecoderedFormat(V4L2_PIX_FMT_YUV422P)
-    ,mRecordformat(V4L2_PIX_FMT_NV12)
-    ,mJpegEncoderFormat(V4L2_PIX_FMT_NV12)
+    ,mDecodedFormat(V4L2_PIX_FMT_YUV420)
 {
     LOG1("@%s: cameraId = %d", __FUNCTION__, cameraId);
 
@@ -577,7 +570,7 @@ status_t ControlThread::returnThumbnailBuffer(CameraBuffer *buff)
 status_t ControlThread::returnConversionBuffer(CameraBuffer *buff)
 {
     status_t status = NO_ERROR;
-    LOG1("@%s",__FUNCTION__);
+
     if (mConversionBuffers == 0)
         return status;
 
@@ -589,37 +582,7 @@ status_t ControlThread::returnConversionBuffer(CameraBuffer *buff)
     }
     return DEAD_OBJECT;
 }
-status_t ControlThread::returnJpegdecBuffer(CameraBuffer *buff)
-{
-    status_t status = NO_ERROR;
 
-    LOG1("@%s",__FUNCTION__);
-    if (mJpegdecBufferPool == 0)
-        return status;
-    for (int i = 0; i < mNumJpegdecBuffers; i++) {
-        if (&mJpegdecBufferPool[i] == buff) {
-            mFreeJpegBuffers.push_back(buff);
-            return status;
-        }
-    }
-    return DEAD_OBJECT;
-}
-status_t ControlThread::returnVPPNV12Buffer(CameraBuffer *buff)
-{
-    status_t status = NO_ERROR;
-
-    LOG1("@%s",__FUNCTION__);
-    if (mVPPOutBufferPool == 0)
-        return status;
-
-    for (int i = 0; i < mNumVPPOutBuffers; i++) {
-        if (&mVPPOutBufferPool[i] == buff) {
-            mFreeVPPOutBuffers.push_back(buff);
-            return status;
-        }
-    }
-    return DEAD_OBJECT;
-}
 int ControlThread::sendCommand(int32_t cmd, int32_t arg1, int32_t arg2)
 {
     Message msg;
@@ -683,7 +646,7 @@ void ControlThread::initMetaDataBuf(IntelMetadataBuffer* metaDatabuf)
 }
 #endif
 
-status_t ControlThread::allocateGraMetaDataBuffers()
+status_t ControlThread::allocateMetaDataBuffers()
 {
     LOG1("@%s", __FUNCTION__);
 
@@ -694,21 +657,21 @@ status_t ControlThread::allocateGraMetaDataBuffers()
     IntelMetadataBuffer* metaDataBuf = NULL;
     CameraBuffer *camBuf = NULL;
 
-    if (NULL == mVPPOutBufferPool) {
+    if (NULL == mConversionBuffers) {
         ALOGE("@%s, the allocateBuffers isn't called", __FUNCTION__);
         return UNKNOWN_ERROR;
     }
 
-    for (int i = 0; i < mNumVPPOutBuffers; i++) {
-        camBuf = &mVPPOutBufferPool[i];
+    for (int i = 0; i < mNumBuffers; i++) {
+        camBuf = &mConversionBuffers[i];
         metaDataBuf = new IntelMetadataBuffer();
         if(metaDataBuf) {
-            metaDataBuf->SetType(MetadataBufferTypeGrallocSource);
-            metaDataBuf->SetValue((uint32_t)camBuf->mGrhandle);
+            initMetaDataBuf(metaDataBuf);
+            metaDataBuf->SetValue((uint32_t)camBuf->getData());
             metaDataBuf->Serialize(meta_data_prt, meta_data_size);
             camBuf->metadata_buff = NULL;
             camBuf->metadata_buff = mCallbacks->allocateMemory(meta_data_size);
-            LOG1("@%s allocate  graphic metadata buffer[%d]  buff=%p size=%d, camBuf->metadata_buff:%p", __FUNCTION__,
+            LOG1("@%s allocate metadata buffer[%d]  buff=%p size=%d, camBuf->metadata_buff:%p", __FUNCTION__,
                 i, camBuf->metadata_buff->data,
                 camBuf->metadata_buff->size, camBuf->metadata_buff);
             if (camBuf->metadata_buff == NULL) {
@@ -730,7 +693,7 @@ status_t ControlThread::allocateGraMetaDataBuffers()
 
 errorFree:
     // On error, free the allocated buffers
-    freeGraMetaDataBuffers();
+    freeMetaDataBuffers();
     if (metaDataBuf) {
         delete metaDataBuf;
         metaDataBuf = NULL;
@@ -738,25 +701,22 @@ errorFree:
 #endif
     return status;
 }
-void ControlThread::freeGraMetaDataBuffers()
+
+void ControlThread::freeMetaDataBuffers()
 {
     LOG1("@%s", __FUNCTION__);
 #ifdef ENABLE_INTEL_METABUFFER
     // release metadata buffer
-    if(mVPPOutBufferPool == NULL)
-    {
-        ALOGI("mVPPOutBufferPool == NULL");
-        return;
-    }
-    for (int i = 0 ; i < mNumVPPOutBuffers; i++) {
-        LOG1("@%s, mVPPOutBufferPool[%d].metadata_buff:0x%p", __FUNCTION__, i, mVPPOutBufferPool[i].metadata_buff);
-        if (mVPPOutBufferPool[i].metadata_buff) {
-            mVPPOutBufferPool[i].metadata_buff->release(mVPPOutBufferPool[i].metadata_buff);
-            mVPPOutBufferPool[i].metadata_buff = NULL;
+    for (int i = 0 ; i < mNumBuffers; i++) {
+        LOG1("@%s, mConversionBuffers[%d].metadata_buff:0x%p", __FUNCTION__, i, mConversionBuffers[i].metadata_buff);
+        if (mConversionBuffers[i].metadata_buff) {
+            mConversionBuffers[i].metadata_buff->release(mConversionBuffers[i].metadata_buff);
+            mConversionBuffers[i].metadata_buff = NULL;
         }
     }
 #endif
 }
+
 status_t ControlThread::startPreviewCore(bool videoMode)
 {
     LOG1("@%s", __FUNCTION__);
@@ -791,116 +751,49 @@ status_t ControlThread::startPreviewCore(bool videoMode)
 
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
     mDriver->setPreviewFrameSize(previewWidth, previewHeight);
-    mPreviewThread->setPreviewConfig(previewWidth, previewHeight, mDecoderedFormat, previewFormat);
+    mPreviewThread->setPreviewConfig(previewWidth, previewHeight, mCameraFormat, previewFormat);
     // set video frame config
     if (videoMode) {
         mParameters.getVideoSize(&videoWidth, &videoHeight);
         mDriver->setVideoFrameSize(videoWidth, videoHeight);
-        mVideoThread->setConfig(mDecoderedFormat, mRecordformat, videoWidth, videoHeight);//videoFormat
+        mVideoThread->setConfig(mCameraFormat, videoFormat, videoWidth, videoHeight);
     }
+    //currently there are no format val for yuv data format after jpefdec, but I will add the val in later version
+    mPipeThread->setConfig(mDecodedFormat, previewFormat, previewWidth, previewHeight);
+
     mNumBuffers = mDriver->getNumBuffers();
     mConversionBuffers = new CameraBuffer[mNumBuffers];
     int bytes = frameSize(previewFormat, previewWidth, previewHeight);
+    //we could always use GEMFlink
+    //but it may be over-kill
+//    ICameraBufferAllocator *alloc = mStoreMetaDataInVideoBuffers?GEMFlinkAllocator::instance():CameraMemoryAllocator::instance();
     ICameraBufferAllocator *alloc = CameraMemoryAllocator::instance();
     for (int i = 0; i < mNumBuffers; i++) {
         alloc->allocateMemory(&mConversionBuffers[i],
                 bytes, previewWidth, previewHeight, previewFormat);
-        if(mConversionBuffers == NULL)
-        {
-            ALOGE("allocateMemory failed!");
-            goto fail;
-        }
         mConversionBuffers[i].metadata_buff = NULL;
         mConversionBuffers[i].mID = i;
         mConversionBuffers[i].mType = BUFFER_TYPE_INTERMEDIATE;
         mConversionBuffers[i].mOwner = this;
         LOG2("@%s, mConversionBuffers[%d]:%p", __FUNCTION__, i, &mConversionBuffers[i]);
     }
+
+    if (videoMode) {
+        allocateMetaDataBuffers();
+    }
+
     for (int i = 0; i < mNumBuffers; i++) {
         mFreeBuffers.push(&mConversionBuffers[i]);
     }
-    //for graphic buffer allocate
-    all_targets = new RenderTarget*[mNumJpegdecBuffers];
-    mJpegdecBufferPool = new CameraBuffer [mNumJpegdecBuffers];
-    for (int i = 0; i < mNumJpegdecBuffers; i++) {
-        status = mGraphicBufAlloc->allocate(&mJpegdecBufferPool[i],previewWidth, previewHeight,mDecoderedFormat);
-        if (status != NO_ERROR)
-        {
-            ALOGE("allocateGrallocBuffer failed!");
-            goto fail;
-        }
-        mJpegdecBufferPool[i].mID = i;
-        all_targets[i] = mJpegdecBufferPool[i].mDecTargetBuf;
-    }
-    for (int i = 0; i < mNumJpegdecBuffers; i++) {
-        mFreeJpegBuffers.push(&mJpegdecBufferPool[i]);
-    }
-    //tmpbuf for callback preview data colorconvert
-    mCallbackMidBuff = new CameraBuffer;
-    status = mGraphicBufAlloc->allocate(mCallbackMidBuff,previewWidth, previewHeight,previewFormat);
-    if (status != NO_ERROR)
-    {
-         ALOGE("allocateGrallocBuffer failed!");
-         goto fail;
-    }
-    //vpp out for video encoder
-    if(videoMode)
-    {
-        mVPPOutBufferPool = new CameraBuffer[mNumVPPOutBuffers];
-        for (int i = 0; i < mNumVPPOutBuffers; i++) {
-             status = mGraphicBufAlloc->allocate(&mVPPOutBufferPool[i], previewWidth, previewHeight,mRecordformat);
-             if (status != NO_ERROR)
-             {
-                ALOGE("allocateGrallocBuffer failed!");
-                goto fail;
-             }
-             mJpegdecBufferPool[i].mID = i;
-        }
-        allocateGraMetaDataBuffers();
-        for (int i = 0; i < mNumVPPOutBuffers; i++) {
-            mFreeVPPOutBuffers.push(&mVPPOutBufferPool[i]);
-        }
-    }
+
     // start the data flow
-    status = mDriver->start(mode,all_targets,mNumJpegdecBuffers);
+    status = mDriver->start(mode);
     if (status == NO_ERROR) {
         mState = state;
     } else {
         ALOGE("Error starting driver!");
     }
-    return status;
-fail:
-    if(mConversionBuffers != NULL)
-    {
-        for (int i = 0; i < mNumBuffers; i++) {
-           mConversionBuffers[i].releaseMemory();
-        }
-        delete [] mConversionBuffers;
-        mFreeBuffers.clear();
-        mConversionBuffers = 0;
-    }
-    if(mJpegdecBufferPool !=NULL)
-    {
-       for (int i = 0; i < mNumJpegdecBuffers; i++) {
-         mGraphicBufAlloc->free(&mJpegdecBufferPool[i]);
-       }
-       mFreeJpegBuffers.clear();
-       mJpegdecBufferPool = 0;
-    }
-    delete []all_targets;
-    if(mCallbackMidBuff != NULL)
-    {
-       mGraphicBufAlloc->free(mCallbackMidBuff);
-       mCallbackMidBuff = 0;
-    }
-    if(mVPPOutBufferPool !=NULL)
-    {
-        for (int i = 0; i < mNumVPPOutBuffers; i++) {
-            mGraphicBufAlloc->free(&mVPPOutBufferPool[i]);
-        }
-        mFreeVPPOutBuffers.clear();
-        mVPPOutBufferPool = 0;
-    }
+
     return status;
 }
 
@@ -925,35 +818,14 @@ status_t ControlThread::stopPreviewCore()
     }
 
     // release metadata buffer
-    freeGraMetaDataBuffers();
+    freeMetaDataBuffers();
+
     for (int i = 0; i < mNumBuffers; i++) {
         mConversionBuffers[i].releaseMemory();
     }
     delete [] mConversionBuffers;
     mFreeBuffers.clear();
     mConversionBuffers = 0;
-    if(mJpegdecBufferPool !=NULL)
-    {
-       for (int i = 0; i < mNumJpegdecBuffers; i++) {
-          mGraphicBufAlloc->free(&mJpegdecBufferPool[i]);
-       }
-       mFreeJpegBuffers.clear();
-       mJpegdecBufferPool = 0;
-    }
-    delete []all_targets;
-    if(mCallbackMidBuff != NULL)
-    {
-       mGraphicBufAlloc->free(mCallbackMidBuff);
-       mCallbackMidBuff = 0;
-    }
-    if(mVPPOutBufferPool !=NULL)
-    {
-       for (int i = 0; i < mNumVPPOutBuffers; i++) {
-           mGraphicBufAlloc->free(&mVPPOutBufferPool[i]);
-       }
-       mFreeVPPOutBuffers.clear();
-       mVPPOutBufferPool = 0;
-    }
     mLastRecordingBuff = 0;
 
     return status;
@@ -1097,7 +969,7 @@ status_t ControlThread::handleMessageTakePicture()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
-    CameraBuffer *snapshotBuffer = 0, *postviewBuffer = 0,*yuvBuffer=0;
+    CameraBuffer *snapshotBuffer = 0, *postviewBuffer = 0;
     State origState = mState;
     int width;
     int height;
@@ -1134,6 +1006,7 @@ status_t ControlThread::handleMessageTakePicture()
 
     // see if we support thumbnail
     mThumbSupported = isThumbSupported(origState);
+
     // Configure PictureThread
     PictureThread::Config config;
 
@@ -1146,14 +1019,20 @@ status_t ControlThread::handleMessageTakePicture()
         copyParams.setPictureSize(width, height); // make sure picture size is same as video size
         gatherExifInfo(&copyParams, false, &config.exif);
     }
-    config.picture.format = mJpegEncoderFormat;
-
+    if(origState == STATE_PREVIEW_VIDEO || origState == STATE_RECORDING)
+    {
+       config.picture.format = mDecodedFormat;
+    }
+    else
+    {
+       config.picture.format = mCameraFormat;
+    }
     config.picture.quality = mParameters.getInt(CameraParameters::KEY_JPEG_QUALITY);
     config.picture.width = width;
     config.picture.height = height;
 
     if (mThumbSupported) {
-        config.thumbnail.format = mJpegEncoderFormat;
+        config.thumbnail.format = config.picture.format;
         config.thumbnail.quality = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_QUALITY);
         config.thumbnail.width = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
         config.thumbnail.height = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
@@ -1164,90 +1043,56 @@ status_t ControlThread::handleMessageTakePicture()
     if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
         // Configure and start the driver
         mDriver->setSnapshotFrameSize(width, height);
-        yuvBuffer = new CameraBuffer;
-        status = mGraphicBufAlloc->allocate(yuvBuffer,width,height,mDecoderedFormat);
-        if(status != NO_ERROR)
-        {
-            ALOGE("allocateGrallocBuffer failed!");
-            return status;
-        }
-        RenderTarget* target = (yuvBuffer->mDecTargetBuf);
-        yuvBuffer->mType = BUFFER_TYPE_CAP;
 
-        if ((status = mDriver->start(CameraDriver::MODE_CAPTURE,&(yuvBuffer->mDecTargetBuf),1)) != NO_ERROR) {
+        if ((status = mDriver->start(CameraDriver::MODE_CAPTURE)) != NO_ERROR) {
             ALOGE("Error starting the driver in CAPTURE mode!");
             return status;
         }
+
         // Get the snapshot
-        if ((status = mDriver->getSnapshot(&snapshotBuffer,yuvBuffer)) != NO_ERROR) {
+        if ((status = mDriver->getSnapshot(&snapshotBuffer)) != NO_ERROR) {
             ALOGE("Error in grabbing snapshot!");
             return status;
         }
         snapshotBuffer->setOwner(this);
         snapshotBuffer->mType = BUFFER_TYPE_SNAPSHOT;
-        returnBuffer(snapshotBuffer);
+
         if (mThumbSupported) {
-            int ret=0;
-            postviewBuffer = new CameraBuffer;
-            ret = mGraphicBufAlloc->allocate(postviewBuffer,config.thumbnail.width,config.thumbnail.height,mJpegEncoderFormat);
-            if(ret != NO_ERROR)
-            {
-                ALOGE("allocate graphic buffer failed");
-                return -1;
+            if ((status = mDriver->getThumbnail(snapshotBuffer, &postviewBuffer, width, height,
+                config.thumbnail.width, config.thumbnail.height)) != NO_ERROR) {
+                ALOGE("Error in grabbing thumbnail!");
             }
             postviewBuffer->setOwner(this);
-            postviewBuffer->mType = BUFFER_TYPE_CAP;
+            postviewBuffer->mType = BUFFER_TYPE_THUMBNAIL;
         }
 
         mCallbacksThread->shutterSound();
-        CameraBuffer *interBuff = new CameraBuffer;
-        status = mGraphicBufAlloc->allocate(interBuff,width,height,mJpegEncoderFormat);
-        if(status != NO_ERROR)
-        {
-             ALOGE("allocate graphic buffer failed");
-             return -1;
-        }
-        interBuff->setOwner(this);
-        interBuff->mType = BUFFER_TYPE_CAP;
 
         if (mThumbSupported && postviewBuffer != NULL) {
-            status = mPictureThread->encode(yuvBuffer,interBuff, postviewBuffer);
+            status = mPictureThread->encode(snapshotBuffer, postviewBuffer);
         } else {
-            status = mPictureThread->encode(yuvBuffer,interBuff);
+            status = mPictureThread->encode(snapshotBuffer);
         }
     } else {
         // If we are in video mode we simply use the recording buffer for picture encoding
         // No need to stop, reconfigure, and restart the driver
         if (mLastRecordingBuff !=0)
         {
-            if (mThumbSupported) 
-            {
-                 int ret=0;
-                 postviewBuffer = new CameraBuffer;
-                 ret = mGraphicBufAlloc->allocate(postviewBuffer,config.thumbnail.width,config.thumbnail.height,mJpegEncoderFormat);
-                 if(ret != NO_ERROR)
-                 {
-                      LOGE("allocate graphic buffer failed");
-                      return -1;
-                 }
-                 postviewBuffer->setOwner(this);
-                 postviewBuffer->mType = BUFFER_TYPE_CAP;
-           }
-            CameraBuffer *interBuff = new CameraBuffer;
-            status  = mGraphicBufAlloc->allocate(interBuff,width,height,mJpegEncoderFormat);
-            if(status != NO_ERROR)
-            {
-                ALOGE("allocate graphic buffer failed");
-                return -1;
-            }
-            interBuff->setOwner(this);
-            interBuff->mType = BUFFER_TYPE_CAP;
-            if (mThumbSupported && postviewBuffer != NULL) {
-                status = mPictureThread->encode(mLastRecordingBuff, interBuff,postviewBuffer);
-            } 
-            else
-            {
-                status = mPictureThread->encode(mLastRecordingBuff,interBuff);
+            if (mThumbSupported) {
+                if ((status = mDriver->getThumbnail(mLastRecordingBuff, &postviewBuffer, width, height,config.thumbnail.width, config.thumbnail.height)) != NO_ERROR) {
+                     ALOGE("Error in grabbing thumbnail!");
+                     return status;
+                }
+                if(postviewBuffer == NULL)
+                {
+                    ALOGE("postviewBuffer == NULL!");
+                    return NO_MEMORY;
+                }
+                postviewBuffer->setOwner(this);
+                postviewBuffer->mType = BUFFER_TYPE_THUMBNAIL;
+                status = mPictureThread->encode(mLastRecordingBuff, postviewBuffer);
+            } else {
+               status = mPictureThread->encode(mLastRecordingBuff);
             }
         }
     }
@@ -1314,14 +1159,15 @@ status_t ControlThread::handleMessageReleaseRecordingFrame(MessageReleaseRecordi
     LOG1("@%s, buff:%p", __FUNCTION__, msg->buff);
     status_t status = NO_ERROR;
     if (mState == STATE_RECORDING) {
-        CameraBuffer *buff;
-        buff = findGraBuffer(msg->buff);
-        LOG1("@%s, rrelease recording buff:0x%p", __FUNCTION__, buff);
+        CameraBuffer *buff = mDriver->findBuffer(msg->buff);
         if (buff == 0) {
-              ALOGE("Could not find recording buffer: %p", msg->buff);
-              return DEAD_OBJECT;
+            buff = findConversionBuffer(msg->buff);
+            LOG1("@%s, rrelease recording buff:0x%p", __FUNCTION__, buff);
+            if (buff == 0) {
+                ALOGE("Could not find recording buffer: %p", msg->buff);
+                return DEAD_OBJECT;
+            }
         }
-        buff->UnLockGrallocData();
         buff->decrementProccessor();
         LOG2("Recording buffer released from encoder, buff id= %d", buff->getID());
     }
@@ -1335,12 +1181,9 @@ status_t ControlThread::handleMessageReturnBuffer(MessageReturnBuffer *msg)
     BufferType type = buff->mType;
     LOG2("return buffer id = %d, type=%d", buff->getID(), type);
 
-    if ((type != BUFFER_TYPE_INTERMEDIATE)&&(type != BUFFER_TYPE_JPEGDEC) &&(type != BUFFER_TYPE_VIDEOENCODER)&&(type != BUFFER_TYPE_PREVIEW) &&(type != BUFFER_TYPE_CAP)
+    if ((type != BUFFER_TYPE_INTERMEDIATE)
             && !(mDriver->isBufferValid(buff)))
-    {
-        ALOGE("wrong buffer type, can't be returned");
         return DEAD_OBJECT;
-    }
     switch (type) {
     case BUFFER_TYPE_PREVIEW:
         status = returnPreviewBuffer(buff);
@@ -1356,15 +1199,6 @@ status_t ControlThread::handleMessageReturnBuffer(MessageReturnBuffer *msg)
         break;
     case BUFFER_TYPE_INTERMEDIATE:
         status = returnConversionBuffer(buff);
-        break;
-    case BUFFER_TYPE_JPEGDEC:
-        status = returnJpegdecBuffer(buff);
-        break;
-    case BUFFER_TYPE_VIDEOENCODER:
-        status = returnVPPNV12Buffer(buff);
-        break;
-    case BUFFER_TYPE_CAP:
-        status = mGraphicBufAlloc->free(buff);
         break;
     default:
         ALOGE("invalid buffer type for buff %d", buff->getID());
@@ -2413,69 +2247,27 @@ CameraBuffer* ControlThread::findConversionBuffer(void *findMe)
     return 0;
 }
 
-CameraBuffer* ControlThread::findGraBuffer(void *findMe)
-{
-    // This is a small list, so incremental search is not an issue right now
-    if (mVPPOutBufferPool) {
-        if (mStoreMetaDataInVideoBuffers) {
-            for (int i = 0; i < mNumVPPOutBuffers; i++) {
-                if (findMe == mVPPOutBufferPool[i].metadata_buff->data)
-                    return &mVPPOutBufferPool[i];
-            }
-        } else {
-            for (int i = 0; i < mNumVPPOutBuffers; i++) {
-                if (mVPPOutBufferPool[i].hasData(findMe))//need to change
-                    return &mVPPOutBufferPool[i];
-            }
-        }
-    }
-    return 0;
-}
-
 status_t ControlThread::dequeuePreview()
 {
     LOG1("@%s", __FUNCTION__);
-    CameraBuffer* driverbuff = NULL;
-    CameraBuffer* yuvbuff = NULL;
+    CameraBuffer* buff = NULL;
     status_t status = NO_ERROR;
 
-    yuvbuff = getFreeGraBuffer(YUV422H_FOR_JPEG);
-    if(yuvbuff  == NULL)
-    {
-       ALOGE("get yuv422 buffer failed");
-       return -1;
-    }
-    status = mDriver->getPreviewFrame(&driverbuff,yuvbuff);
-    if((driverbuff == NULL) || status != NO_ERROR)
-    {
-        if(driverbuff !=NULL)
-        {
-            driverbuff->setOwner(this);
-            driverbuff->mType = BUFFER_TYPE_PREVIEW;
-            returnBuffer(driverbuff);
-        }
-        if(yuvbuff != NULL)
-        {
-            yuvbuff->setOwner(this);
-            returnBuffer(yuvbuff);
-        }
+    status = mDriver->getPreviewFrame(&buff);
+    if(buff == NULL || status != NO_ERROR)
         return status;
-    }
-    driverbuff->setOwner(this);
-    driverbuff->mType = BUFFER_TYPE_PREVIEW;
-    returnBuffer(driverbuff);
 
     if (status == NO_ERROR) {
-        yuvbuff->setOwner(this);
+        buff->setOwner(this);
+        buff->mType = BUFFER_TYPE_PREVIEW;
         CameraBuffer *convBuff = getFreeBuffer();
-
         if (convBuff == 0) {
             ALOGE("No intermediate buffers left");
             status = NO_MEMORY;
-            returnBuffer(yuvbuff);
+            returnBuffer(buff);
             return status;
         } else {
-            status = mPipeThread->preview(yuvbuff, convBuff,mCallbackMidBuff);
+            status = mPipeThread->preview(buff, convBuff);
         }
     } else {
         ALOGE("Error gettting preview frame from driver");
@@ -2486,67 +2278,34 @@ status_t ControlThread::dequeuePreview()
 status_t ControlThread::dequeueRecording()
 {
     LOG1("@%s,mState is:%d", __FUNCTION__, mState);
-    CameraBuffer* driverbuff;
-    CameraBuffer* yuvbuff;
+    CameraBuffer* buff;
     nsecs_t timestamp;
     status_t status = NO_ERROR;
 
-    yuvbuff = getFreeGraBuffer(YUV422H_FOR_JPEG);
-    if(yuvbuff == NULL)
-    {
-        ALOGE("get free buffer yuv422h failed");
-        return -1;
-    }
+    status = mDriver->getRecordingFrame(&buff, &timestamp);
 
-    status = mDriver->getRecordingFrame(&driverbuff,yuvbuff, &timestamp);
-    if((driverbuff == NULL) || status != NO_ERROR)
-    {
-        if(driverbuff !=NULL)
-        {
-            driverbuff->setOwner(this);
-            driverbuff->mType = BUFFER_TYPE_VIDEO;
-            returnBuffer(driverbuff);
-        }
-        if(yuvbuff != NULL)
-        {
-            yuvbuff->setOwner(this);
-            returnBuffer(yuvbuff);
-        }
-        return status;
-    }
-    driverbuff->setOwner(this);
-    driverbuff->mType = BUFFER_TYPE_VIDEO;
-    returnBuffer(driverbuff);
     if (status == NO_ERROR) {
-        yuvbuff->setOwner(this);
+        buff->setOwner(this);
+        buff->mType = BUFFER_TYPE_VIDEO;
 
-        //the convBuff is for Android usage
+        int width, height;
+        mParameters.getVideoSize(&width, &height);
         CameraBuffer *convBuff = getFreeBuffer();
         if (convBuff == 0) {
             ALOGE("No intermediate buffers left");
             status = NO_MEMORY;
-            returnBuffer(yuvbuff);
+            returnBuffer(buff);
             return status;
         }
-        mLastRecordingBuff = yuvbuff;
+        mLastRecordingBuff = buff;
         // See if recording has started.
         // If it has, process the buffer
         // If it hasn't, do preview only
 
         if (mState == STATE_RECORDING) {
-            CameraBuffer *vppBuff;
-            vppBuff = getFreeGraBuffer(NV12_FOR_VIDEO);
-            if (vppBuff == 0) {
-               ALOGE("No NV12 buffers left");
-               status = NO_MEMORY;
-               returnBuffer(yuvbuff);
-               returnBuffer(convBuff);
-               return status;
-           }
-            vppBuff->setOwner(this);
-            status = mPipeThread->previewVideo(yuvbuff, vppBuff,convBuff,mCallbackMidBuff,timestamp);
+            status = mPipeThread->previewVideo(buff, convBuff, timestamp);
         } else {
-            status = mPipeThread->preview(yuvbuff, convBuff,mCallbackMidBuff);
+            status = mPipeThread->preview(buff, convBuff);
         }
     } else {
         ALOGE("Error: getting recording from driver\n");

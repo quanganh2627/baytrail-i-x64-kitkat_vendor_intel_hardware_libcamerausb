@@ -22,8 +22,6 @@
 #include <camera/CameraParameters.h>
 #include "MessageQueue.h"
 #include "CameraCommon.h"
-#include "VAConvertor.h"
-
 
 namespace android {
 
@@ -44,7 +42,7 @@ public:
 // public methods
 public:
 
-    status_t preview(CameraBuffer *inputBuff, CameraBuffer *outputBuff,CameraBuffer *midConvert);
+    status_t preview(CameraBuffer *inputBuff, CameraBuffer *outputBuff);
     status_t setPreviewWindow(struct preview_stream_ops *window);
     status_t setPreviewConfig(int preview_width, int preview_height, int input_format, int output_format);
     status_t flushBuffers();
@@ -75,7 +73,6 @@ private:
     struct MessagePreview {
         CameraBuffer *inputBuff;
         CameraBuffer *outputBuff;
-        CameraBuffer *midConvert;
     };
 
     struct MessageSetPreviewWindow {
@@ -120,6 +117,8 @@ private:
 
     // main message function
     status_t waitForAndExecuteMessage();
+
+    void copyBufWithStride(void *dst, void *src, int width, int height, int stride, int srcFormat);
 // inherited from Thread
 private:
     virtual bool threadLoop();
@@ -139,8 +138,6 @@ private:
     int mInputFormat;
     int mOutputFormat;
     int mGFXHALPixelFormat;
-
-    VAConvertor *mVaConvertor;
 
 }; // class PreviewThread
 

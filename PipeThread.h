@@ -21,16 +21,11 @@
 #include <utils/threads.h>
 #include "MessageQueue.h"
 #include "CameraCommon.h"
-#include "VAConvertor.h"
 
 namespace android {
 
 class PreviewThread;
 class VideoThread;
-class VAConvertor;
-
-
-//#define COLOR_CONVERT_HW
 
 class PipeThread : public Thread {
 
@@ -57,9 +52,9 @@ public:
 public:
 
     void setThreads(sp<PreviewThread> &previewThread, sp<VideoThread> &videoThread);
-    void setConfig(int inputFormat, int outputFormat, int width, int height);
-    status_t preview(CameraBuffer *input, CameraBuffer *output,CameraBuffer *midConvert);
-    status_t previewVideo(CameraBuffer *input, CameraBuffer *output,CameraBuffer *toAndroid,CameraBuffer *midConvert,nsecs_t timestamp);
+    void setConfig(int inputFormat, int outputForamt, int width, int height);
+    status_t preview(CameraBuffer *input, CameraBuffer *output);
+    status_t previewVideo(CameraBuffer *input, CameraBuffer *output, nsecs_t timestamp);
     status_t flushBuffers();
 
 // private types
@@ -84,14 +79,11 @@ private:
     struct MessagePreview {
         CameraBuffer *input;
         CameraBuffer *output;
-        CameraBuffer *midConvert;
     };
 
     struct MessagePreviewVideo {
         CameraBuffer *input;
         CameraBuffer *output;
-        CameraBuffer *toAndroid;
-        CameraBuffer *midConvert;
         nsecs_t timestamp;
     };
     // union of all message data
@@ -139,7 +131,6 @@ private:
     sp<VideoThread> mVideoThread;
     MessageQueue<Message, MessageId> mMessageQueue;
     bool mThreadRunning;
-    VAConvertor *mVaConvertor;
 
 }; // class PipeThread
 

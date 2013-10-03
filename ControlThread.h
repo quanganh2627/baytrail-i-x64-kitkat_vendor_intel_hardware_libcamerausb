@@ -29,15 +29,12 @@
 #include "PipeThread.h"
 #include "CameraCommon.h"
 #include "IFaceDetectionListener.h"
-#include "GraphicBufferAllocator.h"
 namespace android {
 
 class Callbacks;
 class CameraDriver;
 class BufferShareRegistry;
 class IFaceDetector;
-class CamGraphicBufferAllocator;
-
 //
 // ControlThread implements most of the operations defined
 // by camera_device_ops_t. Refer to hardware/camera.h
@@ -208,10 +205,6 @@ private:
         STATE_RECORDING,
         STATE_CAPTURE,
     };
-    enum GraType {
-        YUV422H_FOR_JPEG,
-        NV12_FOR_VIDEO,
-    };
 
 // private methods
 private:
@@ -228,11 +221,6 @@ private:
     status_t returnSnapshotBuffer(CameraBuffer *buff);
     status_t returnThumbnailBuffer(CameraBuffer *buff);
     status_t returnConversionBuffer(CameraBuffer *buff);
-    status_t returnGrallocBuffer(CameraBuffer *buff);
-    status_t returnJpegdecBuffer(CameraBuffer *buff);
-    status_t returnVPPNV12Buffer(CameraBuffer *buff);
-
-    status_t returnVPPYUV420pBuffer(CameraBuffer *buff);
 
     // thread message execution functions
     status_t handleMessageExit();
@@ -259,7 +247,6 @@ private:
     status_t waitForAndExecuteMessage();
 
     CameraBuffer* findConversionBuffer(void *findMe);
-    CameraBuffer* findGraBuffer(void *findMe);
 
     // dequeue buffers from driver and deliver them
     status_t dequeuePreview();
@@ -315,35 +302,12 @@ private:
         mFreeBuffers.pop();
         return ret;
     }
-    CameraBuffer* getFreeGraBuffer(GraType type){
-        if(type == YUV422H_FOR_JPEG)
-        {
-             if(mFreeJpegBuffers.size() == 0)
-                  return 0;
-             CameraBuffer* ret = mFreeJpegBuffers.editTop();
-             mFreeJpegBuffers.pop();
-             return ret;
-        }
-        else if(type == NV12_FOR_VIDEO)
-        {
-            if(mFreeVPPOutBuffers.size() == 0)
-               return 0;
-            CameraBuffer* ret = mFreeVPPOutBuffers.editTop();
-            mFreeVPPOutBuffers.pop();
-               return ret;
-        }
-        else
-        {
-            return 0;
-        }
-
-   }
 
 #ifdef ENABLE_INTEL_METABUFFER
             void initMetaDataBuf(IntelMetadataBuffer* metaDatabuf);
 #endif
-      status_t allocateGraMetaDataBuffers();
-      void freeGraMetaDataBuffers();
+        status_t allocateMetaDataBuffers();
+        void freeMetaDataBuffers();
 
 // inherited from Thread
 private:
@@ -379,24 +343,7 @@ private:
     bool mStoreMetaDataInVideoBuffers;
 
     mutable Mutex mStateLock;
-
-    //add for Graphic buffer allocate and free
-    CamGraphicBufferAllocator * mGraphicBufAlloc;
-    RenderTarget **all_targets;
-    CameraBuffer *mJpegdecBufferPool;
-    int mNumJpegdecBuffers;
-    Vector<CameraBuffer *> mFreeJpegBuffers;
-
-    CameraBuffer *mCallbackMidBuff;
-
-    CameraBuffer *mVPPOutBufferPool;
-    int mNumVPPOutBuffers;
-    Vector<CameraBuffer *> mFreeVPPOutBuffers;
-
-    int mDecoderedFormat;
-    int mRecordformat;
-    int mJpegEncoderFormat;
-
+    int mDecodedFormat;  //this variable is used to store data format that get from driver (after jpegdec or direct get from sensor).
 }; // class ControlThread
 
 }; // namespace android
