@@ -8,6 +8,7 @@ LOCAL_CFLAGS += -DENABLE_INTEL_METABUFFER
 endif
 
 LOCAL_SRC_FILES := \
+        DumpImage.cpp \
 	ControlThread.cpp \
 	PreviewThread.cpp \
 	PictureThread.cpp \
@@ -19,11 +20,12 @@ LOCAL_SRC_FILES := \
 	CallbacksThread.cpp \
 	CameraHAL.cpp \
 	ColorConverter.cpp \
-	EXIFFields.cpp \
+        VAConvertor.cpp \
+        EXIFFields.cpp \
 	JpegCompressor.cpp \
 	CameraBuffer.cpp \
 	CameraBufferAllocator.cpp \
-	JpegDecoder.cpp \
+        GraphicBufferAllocator.cpp \
 	JpegEncoder.cpp
 
 LOCAL_C_INCLUDES += \
@@ -37,8 +39,10 @@ LOCAL_C_INCLUDES += \
 	$(call include-path-for, skia)/images \
 	$(TARGET_OUT_HEADERS)/libdrm \
 	$(TARGET_OUT_HEADERS)/libmix_videoencoder \
-	hardware/intel/PRIVATE/libmix/videoencoder \
 	vendor/intel/hardware/libva \
+        $(TARGET_OUT_HEADERS)/libmix_videovpp \
+        $(TARGET_OUT_HEADERS)/libjpegdec \
+        $(call include-path-for, libhardware) \
 	bionic \
 	$(call include-path-for, stlport) \
 
@@ -56,6 +60,9 @@ LOCAL_SHARED_LIBRARIES := \
 	libstlport \
 	libva-android \
 	libva \
+        libmix_videovpp \
+        libjpegdec \
+        libhardware \
 
 ifeq ($(USE_INTEL_METABUFFER),true)
 LOCAL_SHARED_LIBRARIES += \

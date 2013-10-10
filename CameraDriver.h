@@ -24,12 +24,12 @@
 #include <utils/Errors.h>
 #include <utils/threads.h>
 #include <camera/CameraParameters.h>
+#include <JPEGDecoder.h>
 #include "CameraCommon.h"
 
 namespace android {
 
 class Callbacks;
-class JpegDecoder;
 
 class CameraDriver {
 
@@ -109,29 +109,30 @@ public:
         WHITE_BALANCE_TWILIGHT,
         WHITE_BALANCE_SHADE,
     };
+    enum GraType {
+        YUV422H_FOR_JPEG,
+        NV12_FOR_VIDEO,
+    };
 
 // public methods
 public:
 
     void getDefaultParameters(CameraParameters *params);
 
-    status_t start(Mode mode);
+    status_t start(Mode mode,RenderTarget **all_targets,int targetBufNum);
     status_t stop();
 
     inline int getNumBuffers() { return NUM_DEFAULT_BUFFERS; }
 
-    status_t getPreviewFrame(CameraBuffer **buff);
+    status_t getPreviewFrame(CameraBuffer **driverbuff,CameraBuffer *yuvbuff);
     status_t putPreviewFrame(CameraBuffer *buff);
 
-    status_t getRecordingFrame(CameraBuffer **buff, nsecs_t *timestamp);
+    status_t getRecordingFrame(CameraBuffer **driverbuff, CameraBuffer *yuvbuff, nsecs_t *timestamp);
     status_t putRecordingFrame(CameraBuffer *buff);
 
     status_t setSnapshotBuffers(void *buffs, int numBuffs);
-    status_t getSnapshot(CameraBuffer **buff);
+    status_t getSnapshot(CameraBuffer **driverbuff, CameraBuffer *yuvbuff);
     status_t putSnapshot(CameraBuffer *buff);
-
-    status_t getThumbnail(CameraBuffer *buff,CameraBuffer **inputBuffer,
-        int width, int height, int thumb_w, int thumb_h);
     status_t putThumbnail(CameraBuffer *buff);
     CameraBuffer* findBuffer(void* findMe) const;
 
@@ -187,7 +188,6 @@ public:
     status_t setAwbLock(bool lock);
     status_t setMeteringAreas(CameraWindow *windows, int numWindows);
 
-    void write_image(const void *data, const int size, int width, int height, const char *name);
 
 // private types
 private:
@@ -266,11 +266,11 @@ private:
 // private methods
 private:
 
-    status_t startPreview();
+    status_t startPreview(RenderTarget **all_targets,int targetBufNum);
     status_t stopPreview();
-    status_t startRecording();
+    status_t startRecording(RenderTarget **all_targets,int targetBufNum);
     status_t stopRecording();
-    status_t startCapture();
+    status_t startCapture(RenderTarget **all_targets,int targetBufNum);
     status_t stopCapture();
 
     static int enumerateCameras();
@@ -280,7 +280,7 @@ private:
     // Open, Close, Configure methods
     int openDevice();
     void closeDevice();
-    int configureDevice(Mode deviceMode, int w, int h, int numBuffers);
+    int configureDevice(Mode deviceMode, int w, int h, int numBuffers,RenderTarget **all_targets,int targetBufNum);
     int deconfigureDevice();
     int startDevice();
     void stopDevice();
@@ -291,7 +291,7 @@ private:
     status_t freeBuffer(int index);
     status_t freeBuffers();
     status_t queueBuffer(CameraBuffer *buff, bool init = false);
-    status_t dequeueBuffer(CameraBuffer **buff, nsecs_t *timestamp = 0, bool forJpeg = 0);
+    status_t dequeueBuffer(CameraBuffer **driverbuff,CameraBuffer *yuvbuff, nsecs_t *timestamp = 0, bool forJpeg = 0);
 
     status_t v4l2_capture_open(const char *devName);
     status_t v4l2_capture_close(int fd);
