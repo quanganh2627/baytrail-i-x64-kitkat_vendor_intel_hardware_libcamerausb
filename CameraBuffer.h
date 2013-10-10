@@ -17,6 +17,8 @@
 #ifndef CAMERABUFFER_H_
 #define CAMERABUFFER_H_
 #include <hardware/camera.h>
+#include <VideoVPPBase.h>
+#include "CameraCommon.h"
 
 namespace android
 {
@@ -28,6 +30,11 @@ enum BufferType {
     BUFFER_TYPE_THUMBNAIL,
     BUFFER_TYPE_INTERMEDIATE, //used for intermediate conversion,
                              // no need to return to driver
+    BUFFER_TYPE_JPEGDEC,
+    BUFFER_TYPE_VIDEOENCODER,
+    BUFFER_TYPE_PREVIEWCALLBACK,
+    BUFFER_TYPE_CAP,
+
     BUFFER_TYPE_MAX
 };
 
@@ -97,6 +104,13 @@ public:
      * as soon as it holds a reference before accessing data in the buffer.
      */
     void incrementProcessor();
+    void LockGrallocData(void** addr,int* size);
+    void UnLockGrallocData();
+    buffer_handle_t GetGrabuffHandle();
+
+    RenderTarget* GetRenderTargetHandle();
+    int GetGraStride();
+    int GetType();
 
 private:
     //not allowed to pass buffer by value.
@@ -126,6 +140,13 @@ private:
     void* mAllocPrivate;     // Allocator specific handle,
                              // gralloc handle, gem bo, etc
                              //
+    //next for gralloc usage
+    buffer_handle_t mGrhandle;
+    struct gralloc_module_t *mGralloc_module;
+    int mGraBuffSize;
+    int mStride;
+    RenderTarget *mDecTargetBuf;
+
     // Theses are special friends that need and are
     // allowed to access my private members.
     friend class CameraDriver;
@@ -133,6 +154,7 @@ private:
     friend class ICameraBufferAllocator;
     friend class GEMFlinkAllocator;
     friend class CameraMemoryAllocator;
+    friend class CamGraphicBufferAllocator;
 };
 
 }//namespace
