@@ -122,7 +122,6 @@ status_t PictureThread::encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer
     // Copy the EOI marker
     memcpy(currentPtr, (void*)JPEG_MARKER_EOI, sizeof(JPEG_MARKER_EOI));
     totalSize += sizeof(JPEG_MARKER_EOI);
-    currentPtr += sizeof(JPEG_MARKER_EOI);
     exifSize = totalSize;
 
     // Convert and encode the main picture image
@@ -252,8 +251,6 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
 {
     LOG1("@%s: snapshot ID = %d", __FUNCTION__, msg->snaphotBuf->getID());
     status_t status = NO_ERROR;
-    int exifSize = 0;
-    int totalSize = 0;
     CameraBuffer jpegBuf;
     void *snapshotbuff[3];
     void *thumbnailbuff[3];
@@ -371,7 +368,7 @@ bool PictureThread::threadLoop()
     while (mThreadRunning)
         status = waitForAndExecuteMessage();
 
-    return false;
+    return status;
 }
 
 status_t PictureThread::requestExitAndWait()

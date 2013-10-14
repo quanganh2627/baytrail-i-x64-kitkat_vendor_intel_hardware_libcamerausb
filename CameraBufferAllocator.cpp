@@ -132,7 +132,10 @@ GEMFlinkAllocator::GEMFlinkAllocator()
 {
     mDRMBufMgr = intel_bufmgr_gem_init(getDRMFD(), BATCH_SIZE);
     assert(mDRMBufMgr != 0);
-    intel_bufmgr_gem_enable_reuse(mDRMBufMgr);
+    if(mDRMBufMgr != NULL)
+    {
+        intel_bufmgr_gem_enable_reuse(mDRMBufMgr);
+    }
 }
 
 GEMFlinkAllocator::~GEMFlinkAllocator()
