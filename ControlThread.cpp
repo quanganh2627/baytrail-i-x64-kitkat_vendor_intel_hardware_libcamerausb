@@ -393,7 +393,7 @@ status_t ControlThread::gatherExifInfo(const CameraParameters *params, bool flas
     //
     // HARDWARE DATA
     //
-    unsigned int fNumber;
+    unsigned int fNumber = 0;
     float focalLength;
 
     CamExifExposureProgramType exposureProgram;
@@ -1433,6 +1433,11 @@ status_t ControlThread::validateParameters(const CameraParameters *params)
     // FLASH
     const char* flashMode = params->get(CameraParameters::KEY_FLASH_MODE);
     const char* flashModes = params->get(CameraParameters::KEY_SUPPORTED_FLASH_MODES);
+    if (flashModes == NULL || flashMode == NULL)
+    {
+        ALOGE("flashModes or flashMode is null");
+        return BAD_VALUE;
+    }
     if (strstr(flashModes, flashMode) == NULL) {
         ALOGE("bad flash mode");
         return BAD_VALUE;
@@ -1441,6 +1446,11 @@ status_t ControlThread::validateParameters(const CameraParameters *params)
     // FOCUS
     const char* focusMode = params->get(CameraParameters::KEY_FOCUS_MODE);
     const char* focusModes = params->get(CameraParameters::KEY_SUPPORTED_FOCUS_MODES);
+    if (focusModes == NULL || focusMode == NULL)
+    {
+        ALOGE("focusModes or flashMode is null");
+        return BAD_VALUE;
+    }
     if (strstr(focusModes, focusMode) == NULL) {
         ALOGE("bad focus mode");
         return BAD_VALUE;
@@ -1544,7 +1554,6 @@ status_t ControlThread::processDynamicParameters(const CameraParameters *oldPara
     status_t status = NO_ERROR;
     int oldZoom = oldParams->getInt(CameraParameters::KEY_ZOOM);
     int newZoom = newParams->getInt(CameraParameters::KEY_ZOOM);
-    bool videoMode = isParameterSet(CameraParameters::KEY_RECORDING_HINT) ? true : false;
 
     if (oldZoom != newZoom)
         status = mDriver->setZoom(newZoom);
@@ -1946,6 +1955,12 @@ status_t ControlThread:: processParamSetMeteringAreas(const CameraParameters *ol
         const char *argTail = pMeteringWindows;
         size_t winCount = 0;
         meteringWindows = new CameraWindow[maxWindows];
+        if(meteringWindows == NULL)
+        {
+             ALOGE("new CameraWindow failed");
+             status = NO_MEMORY;
+             return status;
+        }
         while (argTail && winCount < maxWindows) {
             // String format: "(topleftx,toplefty,bottomrightx,bottomrighty,weight),(...)"
             int len = sscanf(argTail, "(%d,%d,%d,%d,%d)",
@@ -1981,8 +1996,8 @@ status_t ControlThread:: processParamSetMeteringAreas(const CameraParameters *ol
         if (winCount > 0) {
             preSetCameraWindows(meteringWindows, winCount);
             status = mDriver->setMeteringAreas(meteringWindows, winCount);
-            delete meteringWindows;
         }
+        delete meteringWindows;
     }
     return status;
 }

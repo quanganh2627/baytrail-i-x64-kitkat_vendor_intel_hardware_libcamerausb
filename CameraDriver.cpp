@@ -609,9 +609,9 @@ int CameraDriver::openDevice()
 
     fd = v4l2_capture_open(dev_name);
 
-    if (fd < 0) {
+    if (fd == -1) {
         ALOGE("V4L2: capture_open failed: %s", strerror(errno));
-        return -EFAULT;
+        return fd;
     }
 
     // Query and check the capabilities
@@ -1338,10 +1338,10 @@ status_t CameraDriver::v4l2_capture_open(const char *devName)
 
     fd = open(devName, O_RDWR);
 
-    if (fd <= 0) {
+    if (fd == -1) {
         ALOGE("Error opening video device %s: %s",
                 devName, strerror(errno));
-        return -1;
+        return fd;
     }
 
     return fd;

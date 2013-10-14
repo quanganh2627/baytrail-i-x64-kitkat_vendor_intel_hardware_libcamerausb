@@ -218,7 +218,7 @@ bool PipeThread::threadLoop()
     while (mThreadRunning)
         status = waitForAndExecuteMessage();
 
-    return false;
+    return status;
 }
 
 status_t PipeThread::requestExitAndWait()

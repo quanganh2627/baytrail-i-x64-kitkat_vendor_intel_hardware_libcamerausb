@@ -119,7 +119,7 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
             msg->inputBuff->getData());
 
     if (mPreviewWindow != 0) {
-        buffer_handle_t *buf;
+        buffer_handle_t *buf = NULL;
         int err;
         int stride;
         if ((err = mPreviewWindow->dequeue_buffer(mPreviewWindow, &buf, &stride)) != 0) {
@@ -149,7 +149,6 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
             }
             mapper.unlock(*buf);
         }
-        buf = NULL;
     }
 
     mDebugFPS->update(); // update fps counter
@@ -192,7 +191,6 @@ exit:
 status_t PreviewThread::handleMessageSetPreviewWindow(MessageSetPreviewWindow *msg)
 {
     LOG1("@%s: window = %p", __FUNCTION__, msg->window);
-    status_t status = NO_ERROR;
 
     mPreviewWindow = msg->window;
 
@@ -215,7 +213,6 @@ status_t PreviewThread::handleMessageSetPreviewConfig(MessageSetPreviewConfig *m
 {
     LOG1("@%s: width = %d, height = %d", __FUNCTION__,
          msg->width, msg->height);
-    status_t status = NO_ERROR;
 
     if ((msg->width != 0 && msg->height != 0) &&
             (mPreviewWidth != msg->width || mPreviewHeight != msg->height)) {
@@ -299,7 +296,7 @@ bool PreviewThread::threadLoop()
     // stop gathering frame rate stats
     mDebugFPS->requestExitAndWait();
 
-    return false;
+    return status;
 }
 
 status_t PreviewThread::requestExitAndWait()

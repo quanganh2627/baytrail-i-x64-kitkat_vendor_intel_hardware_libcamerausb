@@ -170,7 +170,6 @@ int JpegCompressor::encode(const InputBuffer &in, const OutputBuffer &out)
     SkDynamicMemoryWStream skStream;
     // For HW path
     struct jpeg_compress_struct cinfo;
-    struct jpeg_compress_struct* pCinfo;
     struct jpeg_error_mgr jerr;
     JSAMPROW row_pointer[1];
 
