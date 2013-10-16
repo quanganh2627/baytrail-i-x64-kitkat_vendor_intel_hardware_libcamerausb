@@ -30,6 +30,7 @@ public:
     DebugFrameRate();
     ~DebugFrameRate();
 
+    status_t run();
     void update();
     status_t requestExitAndWait(); // override
 
@@ -44,6 +45,7 @@ private:
     nsecs_t mStartTime;
     Condition mCondition;
     Mutex mMutex;
+    bool mActive;
 };
 
 #else // CAMERA_DEBUG

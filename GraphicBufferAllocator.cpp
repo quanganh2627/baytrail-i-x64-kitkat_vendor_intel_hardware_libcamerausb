@@ -100,7 +100,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
         format = V4L2_PIX_FMT_YVU420;
     }
     HalFormat = V4L2FormatToHalPixel(format);
-    if(HalFormat == HAL_PIXEL_FORMAT_NV12 || HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL) // for video encoder
+    if(HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL) // for video encoder
     {
        gcamBuff->mType = BUFFER_TYPE_VIDEOENCODER;
     }
@@ -126,7 +126,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     }
     pGrallocHandle = (struct mfx_gralloc_drm_handle_t *)handle;
     gcamBuff->mStride = pGrallocHandle->pitch;
-    if((HalFormat == HAL_PIXEL_FORMAT_NV12) ||(HalFormat == HAL_PIXEL_FORMAT_YV12) || (HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL))
+    if((HalFormat == HAL_PIXEL_FORMAT_YV12) || (HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL))
     {
          gcamBuff->mGraBuffSize = pGrallocHandle->pitch * height *3/2;
     }
@@ -156,7 +156,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
 }
 status_t CamGraphicBufferAllocator::free(CameraBuffer * buffer)
 {
-    LOG1("@%s", __FUNCTION__);
+    LOG1("@%s buffer=%p", __FUNCTION__,buffer);
 
     if(mGrAllocDev !=NULL)
     {

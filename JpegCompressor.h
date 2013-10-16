@@ -18,30 +18,13 @@
 #define ANDROID_LIBCAMERA_JPEG_COMPRESSOR_H
 
 #include <stdio.h>
-#include "SkImageEncoder.h"
 #include "CameraCommon.h"
 #include <utils/Errors.h>
 
 namespace android {
+class SWJpegEncoder;
 
 class JpegCompressor {
-    int mJpegSize;
-
-    // For buffer sharing
-    char* mVaInputSurfacesPtr[MAX_BURST_BUFFERS];
-    int mVaInputSurfacesNum;
-    int mVaSurfaceWidth;
-    int mVaSurfaceHeight;
-
-    SkImageEncoder* mJpegEncoder; // used for small images (< 512x512)
-    void *mJpegCompressStruct;
-    bool mStartSharedBuffersEncode;
-#ifndef ANDROID_1998
-    bool mStartCompressDone;
-#endif
-
-    bool convertRawImage(void* src, void* dst, int stride, int width,int alignHeight,int height, int format);
-
 public:
     JpegCompressor();
     ~JpegCompressor();
@@ -85,6 +68,11 @@ public:
 
     // Encoder functions
     int encode(const InputBuffer &in, const OutputBuffer &out);
+private:
+    int mJpegSize;
+    unsigned char* midbuf;
+    SWJpegEncoder *mSWEncoder;
+    int swEncode(const InputBuffer &in, const OutputBuffer &out);
 
 };
 

@@ -143,7 +143,10 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
                 goto exit;
             }
             LOG1("Preview Color Conversion to YUY2, stride: %d height: %d", stride, mPreviewHeight);
-            mVaConvertor->VPPColorConverter(msg->inputBuff->GetGrabuffHandle(),*buf,mPreviewWidth,mPreviewHeight,mInputFormat,HalPixelToV4L2Format(mGFXHALPixelFormat));
+            RenderTarget previewRT;
+            memset((void*)&previewRT,0,sizeof(RenderTarget));
+            mVaConvertor->ConfigBuffer(&previewRT,*buf,mPreviewWidth,mPreviewHeight,mGFXHALPixelFormat);
+            mVaConvertor->VPPBitBlit(msg->inputBuff->GetRenderTargetHandle(),&previewRT);
             if ((err = mPreviewWindow->enqueue_buffer(mPreviewWindow, buf)) != 0) {
                 ALOGE("Surface::queueBuffer returned error %d", err);
             }

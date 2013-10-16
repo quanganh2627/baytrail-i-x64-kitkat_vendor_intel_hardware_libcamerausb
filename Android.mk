@@ -26,7 +26,8 @@ LOCAL_SRC_FILES := \
 	CameraBuffer.cpp \
 	CameraBufferAllocator.cpp \
         GraphicBufferAllocator.cpp \
-	JpegEncoder.cpp
+	JpegEncoder.cpp \
+        SWJpegEncoder.cpp
 
 LOCAL_C_INCLUDES += \
 	$(call include-path-for, frameworks-base) \
@@ -37,14 +38,14 @@ LOCAL_C_INCLUDES += \
 	$(call include-path-for, libhardware) \
 	$(call include-path-for, skia)/core \
 	$(call include-path-for, skia)/images \
+        $(call include-path-for, libhardware) \
+        $(call include-path-for, stlport) \
 	$(TARGET_OUT_HEADERS)/libdrm \
 	$(TARGET_OUT_HEADERS)/libmix_videoencoder \
-	vendor/intel/hardware/libva \
+        $(TARGET_OUT_HEADERS)/libva \
         $(TARGET_OUT_HEADERS)/libmix_videovpp \
         $(TARGET_OUT_HEADERS)/libjpegdec \
-        $(call include-path-for, libhardware) \
 	bionic \
-	$(call include-path-for, stlport) \
 
 LOCAL_SHARED_LIBRARIES := \
 	libcamera_client \
@@ -63,6 +64,7 @@ LOCAL_SHARED_LIBRARIES := \
         libmix_videovpp \
         libjpegdec \
         libhardware \
+        libjpeg
 
 ifeq ($(USE_INTEL_METABUFFER),true)
 LOCAL_SHARED_LIBRARIES += \

@@ -45,17 +45,20 @@ struct CameraWindow {
     int weight;
 };
 
-static int frameSize(int format, int width, int height)
+static int frameSize(int format, int width, int height,int AlignTo16 = 0)
 {
     int size = 0;
     int yplansize = 0;
     int uvplansize = 0;
     switch (format) {
         case V4L2_PIX_FMT_YUV420:
-            yplansize = ALIGN(width,16) * height; //Android CTS verifier required: y plane needs 16 bytes aligned!
-            uvplansize = ALIGN(width >> 1,16) * height;//Android CTS verifier required: U/V plane needs 16 bytes aligned!
-            size = yplansize + uvplansize;
-            break;
+            if(AlignTo16)
+            {
+                yplansize = ALIGN(width,16) * height; //Android CTS verifier required: y plane needs 16 bytes aligned!
+                uvplansize = ALIGN(width >> 1,16) * height;//Android CTS verifier required: U/V plane needs 16 bytes aligned!
+                size = yplansize + uvplansize;
+                break;
+            }
         case V4L2_PIX_FMT_YVU420:
         case V4L2_PIX_FMT_NV12:
         case V4L2_PIX_FMT_NV21:
