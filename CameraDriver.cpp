@@ -95,6 +95,7 @@ CameraDriver::CameraDriver(int cameraId) :
     int err = set_capture_mode(MODE_CAPTURE);
     if (err < 0) {
         ALOGE("Failed to init device to capture mode");
+        closeDevice();
         return;
     }
 
@@ -600,7 +601,6 @@ int CameraDriver::openDevice()
         return -ENODEV;
     }
 
-    LOG1("@%s", __FUNCTION__);
     if (mCameraSensor[mCameraId]->fd >= 0) {
         ALOGE("%s: camera is already opened", __FUNCTION__);
         return mCameraSensor[mCameraId]->fd;
@@ -825,6 +825,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
 
     if(mJpegDecoder) {
         void * pSrc = camBuff->getData();
+        camBuff->mSize = vbuff.bytesused;
         int len = vbuff.bytesused;
 
         //write_image(pSrc, len, mConfig.preview.width, mConfig.preview.height, ".jpeg");
@@ -1463,7 +1464,7 @@ status_t CameraDriver::putPreviewFrame(CameraBuffer *buff)
     if (mMode == MODE_NONE)
         return INVALID_OPERATION;
 
-    return queueBuffer(buff);;
+    return queueBuffer(buff);
 }
 
 status_t CameraDriver::getRecordingFrame(CameraBuffer **driverbuff, CameraBuffer *yuvbuff,nsecs_t *timestamp)
@@ -1482,7 +1483,7 @@ status_t CameraDriver::putRecordingFrame(CameraBuffer *buff)
     if (mMode == MODE_NONE)
         return INVALID_OPERATION;
 
-    return queueBuffer(buff);;
+    return queueBuffer(buff);
 }
 
 status_t CameraDriver::getSnapshot(CameraBuffer **driverbuff, CameraBuffer *yuvbuff)
@@ -1501,7 +1502,7 @@ status_t CameraDriver::putSnapshot(CameraBuffer *buff)
     if (mMode == MODE_NONE)
         return INVALID_OPERATION;
 
-    return queueBuffer(buff);;
+    return queueBuffer(buff);
 }
 status_t CameraDriver::putThumbnail(CameraBuffer *buff)
 {

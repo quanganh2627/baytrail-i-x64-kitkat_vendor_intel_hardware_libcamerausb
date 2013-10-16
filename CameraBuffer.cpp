@@ -53,6 +53,11 @@ void* CameraBuffer::getData()
     return mData;
 }
 
+int CameraBuffer::getDataSize()
+{
+    return mSize;
+}
+
 void CameraBuffer::LockGrallocData(void** addr,int* size)
 {
     int res =0;

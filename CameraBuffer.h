@@ -68,6 +68,11 @@ public:
      */
     void* getData();
 
+   /**
+     *  returns size of raw data.
+     */
+   int getDataSize();
+
     /**
      * release memory allocated for this buffer.
      */

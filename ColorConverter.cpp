@@ -748,7 +748,7 @@ void YV12ToNV21withStride(int width, int height,int stride,int alignheight, void
         srcPtrU += stride/2;
     }
 }
-void RepaddingYV12(int width, int height, int srcStride, int dstStride,int alignheight, void *src, void *dst)
+void RepaddingYV12(int width, int height, int srcStride, int dstStride,int alignheight, void *src, void *dst,int dstAlignTo16)
 {
     // copy the entire Y plane
     if (srcStride == dstStride) {
@@ -765,7 +765,15 @@ void RepaddingYV12(int width, int height, int srcStride, int dstStride,int align
 
     // copy VU plane
     const int scStride = srcStride >> 1;
-    const int dcStride = ALIGN(dstStride >> 1,16); // Android CTS required: U/V plane needs 16 bytes aligned!
+    int dcStride = 0;
+    if(dstAlignTo16 == 1)
+    {
+       dcStride = ALIGN(dstStride >> 1,16); // Android CTS required: U/V plane needs 16 bytes aligned!
+    }
+    else
+    {
+       dcStride = dstStride >> 1;
+    }
     if (dcStride == scStride) {
         unsigned char *srcPtrV = (unsigned char *)src + alignheight * srcStride;
         unsigned char *dstPtrV = (unsigned char *)dst + height * dstStride;

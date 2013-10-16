@@ -28,11 +28,19 @@ DebugFrameRate::DebugFrameRate() :
     Thread(false)
     ,mCount(0)
     ,mStartTime(0)
+    ,mActive(false)
 {
+    mActive = true;
 }
 
 DebugFrameRate::~DebugFrameRate()
 {
+}
+status_t DebugFrameRate::run()
+{
+   if(mActive)
+       return Thread::run("CamHAL_DEBFPS");
+   return NO_ERROR;
 }
 
 void DebugFrameRate::update()
@@ -44,6 +52,8 @@ void DebugFrameRate::update()
 
 status_t DebugFrameRate::requestExitAndWait()
 {
+    if(!mActive)
+       return NO_ERROR;
     mMutex.lock();
     mCondition.signal();
     mMutex.unlock();

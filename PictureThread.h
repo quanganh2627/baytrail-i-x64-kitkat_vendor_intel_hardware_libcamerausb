@@ -54,6 +54,7 @@ public:
         Image picture;
         Image thumbnail;
         exif_attribute_t exif;
+        bool jpegfromdriver;
     };
 
 // public methods
@@ -112,7 +113,7 @@ private:
     // main message function
     status_t waitForAndExecuteMessage();
 
-    status_t encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer *destBuf,int picture_stride,int thumbnail_stride,int alignPicHeight,int alignThumHeight);
+    status_t encodeToJpeg(void *mainBuf, int mainSize, void *thumbBuf, CameraBuffer *destBuf,int picture_stride,int thumbnail_stride,int alignPicHeight,int alignThumHeight);
 
 // inherited from Thread
 private:

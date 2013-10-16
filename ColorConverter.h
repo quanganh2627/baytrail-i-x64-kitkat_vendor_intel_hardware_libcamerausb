@@ -23,6 +23,8 @@ namespace android {
 
 status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void *src, void *dst);
 status_t colorConvertwithStride(int srcFormat, int dstFormat, int stride,int width, int alignHeight, int height, void *src, void *dst);
+void RepaddingYV12(int width, int height, int srcStride, int dstStride,int alignheight, void *src, void *dst,int dstAlignTo16 = 1);
+
 
 const char *cameraParametersFormat(int v4l2Format);
 int V4L2Format(const char *cameraParamsFormat);
