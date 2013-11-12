@@ -338,12 +338,9 @@ private:
         }
 
    }
-
-#ifdef ENABLE_INTEL_METABUFFER
-            void initMetaDataBuf(IntelMetadataBuffer* metaDatabuf);
-#endif
-      status_t allocateGraMetaDataBuffers();
-      void freeGraMetaDataBuffers();
+    void initMetaDataBuf(IntelMetadataBuffer* metaDatabuf);
+    status_t allocateGraMetaDataBuffers();
+    void freeGraMetaDataBuffers();
 
 // inherited from Thread
 private:

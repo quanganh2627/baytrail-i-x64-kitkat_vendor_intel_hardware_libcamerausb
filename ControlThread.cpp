@@ -655,7 +655,6 @@ status_t ControlThread::handleMessageExit()
     return NO_ERROR;
 }
 
-#ifdef ENABLE_INTEL_METABUFFER
 void ControlThread::initMetaDataBuf(IntelMetadataBuffer* metaDatabuf)
 {
     int width, height;
@@ -681,14 +680,12 @@ void ControlThread::initMetaDataBuf(IntelMetadataBuffer* metaDatabuf)
     delete vinfo;
     vinfo = NULL;
 }
-#endif
 
 status_t ControlThread::allocateGraMetaDataBuffers()
 {
     LOG1("@%s", __FUNCTION__);
 
     status_t status = NO_ERROR;
-#ifdef ENABLE_INTEL_METABUFFER
     uint8_t* meta_data_prt;
     uint32_t meta_data_size;
     IntelMetadataBuffer* metaDataBuf = NULL;
@@ -703,7 +700,7 @@ status_t ControlThread::allocateGraMetaDataBuffers()
         camBuf = &mVPPOutBufferPool[i];
         metaDataBuf = new IntelMetadataBuffer();
         if(metaDataBuf) {
-            metaDataBuf->SetType(MetadataBufferTypeGrallocSource);
+            metaDataBuf->SetType(IntelMetadataBufferTypeGrallocSource);
             metaDataBuf->SetValue((uint32_t)camBuf->mGrhandle);
             metaDataBuf->Serialize(meta_data_prt, meta_data_size);
             camBuf->metadata_buff = NULL;
@@ -735,13 +732,11 @@ errorFree:
         delete metaDataBuf;
         metaDataBuf = NULL;
     }
-#endif
     return status;
 }
 void ControlThread::freeGraMetaDataBuffers()
 {
     LOG1("@%s", __FUNCTION__);
-#ifdef ENABLE_INTEL_METABUFFER
     // release metadata buffer
     if(mVPPOutBufferPool == NULL)
     {
@@ -755,7 +750,6 @@ void ControlThread::freeGraMetaDataBuffers()
             mVPPOutBufferPool[i].metadata_buff = NULL;
         }
     }
-#endif
 }
 status_t ControlThread::startPreviewCore(bool videoMode)
 {

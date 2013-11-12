@@ -1,11 +1,6 @@
-ifeq ($(USE_CAMERA_STUB),false)
 ifeq ($(USE_CAMERA_USB), true)
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
-
-ifeq ($(USE_INTEL_METABUFFER),true)
-LOCAL_CFLAGS += -DENABLE_INTEL_METABUFFER
-endif
 
 LOCAL_SRC_FILES := \
         DumpImage.cpp \
@@ -29,22 +24,21 @@ LOCAL_SRC_FILES := \
 	JpegEncoder.cpp
 
 LOCAL_C_INCLUDES += \
-	$(call include-path-for, frameworks-base) \
-	$(call include-path-for, frameworks-base)/binder \
-	$(call include-path-for, frameworks-base)/camera \
-	$(call include-path-for, system-core)/cutils \
-	$(call include-path-for, jpeg) \
-	$(call include-path-for, libhardware) \
-	$(call include-path-for, skia)/core \
-	$(call include-path-for, skia)/images \
-	$(TARGET_OUT_HEADERS)/libdrm \
-	$(TARGET_OUT_HEADERS)/libmix_videoencoder \
+	frameworks/base/include/binder \
+	frameworks/base/include/camera \
+	system/core/include/cutils \
+	hardware/libhardware/include \
+	external/jpeg \
+	external/PRIVATE/drm/include/drm \
+	external/PRIVATE/drm/intel \
+	external/skia/include/core \
+	external/skia/include/images \
+	external/stlport/stlport \
+	vendor/intel/hardware/PRIVATE/libmix/videoencoder \
+	vendor/intel/hardware/PRIVATE/libmix/videovpp \
+	vendor/intel/hardware/PRIVATE/libmix/imagedecoder \
 	vendor/intel/hardware/libva \
-        $(TARGET_OUT_HEADERS)/libmix_videovpp \
-        $(TARGET_OUT_HEADERS)/libjpegdec \
-        $(call include-path-for, libhardware) \
 	bionic \
-	$(call include-path-for, stlport) \
 
 LOCAL_SHARED_LIBRARIES := \
 	libcamera_client \
@@ -52,7 +46,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	libbinder \
 	libskia \
-	libandroid \
 	libui \
 	libdrm \
 	libdrm_intel \
@@ -64,17 +57,10 @@ LOCAL_SHARED_LIBRARIES := \
         libjpegdec \
         libhardware \
 
-ifeq ($(USE_INTEL_METABUFFER),true)
-LOCAL_SHARED_LIBRARIES += \
-        libintelmetadatabuffer
-endif
-
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
-LOCAL_MODULE := camera.$(TARGET_DEVICE)
+LOCAL_MODULE := camera.$(TARGET_PRODUCT)
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
 
-include $(call all-makefiles-under,$(LOCAL_PATH))
-endif #ifeq ($(USE_CAMERA_STUB),false)
 endif #ifeq ($(USE_CAMERA_USB), true)
