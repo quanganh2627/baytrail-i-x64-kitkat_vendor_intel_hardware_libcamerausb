@@ -232,7 +232,7 @@ private:
     status_t returnJpegdecBuffer(CameraBuffer *buff);
     status_t returnVPPNV12Buffer(CameraBuffer *buff);
 
-    status_t returnVPPYUV420pBuffer(CameraBuffer *buff);
+    status_t returnCaptureBuffer(CameraBuffer *buff);
 
     // thread message execution functions
     status_t handleMessageExit();
@@ -398,6 +398,7 @@ private:
     int mRecordformat;
     int mJpegEncoderFormat;
 
+    CameraBuffer *yuvBuffer;
     CameraBuffer *postviewBuffer;
     CameraBuffer *interBuff;
     int driverWidth; //the actual width from camera module

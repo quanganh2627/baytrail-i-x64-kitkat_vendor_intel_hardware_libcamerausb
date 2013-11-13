@@ -63,16 +63,15 @@ status_t VideoThread::video(CameraBuffer *buff, CameraBuffer *interbuff,nsecs_t 
     msg.data.video.yuv422hbuff= buff;
     msg.data.video.nv12buff= interbuff;
     msg.data.video.timestamp = timestamp;
-    if ((ret = mMessageQueue.send(&msg)) == NO_ERROR)
-    {
+    if(buff != 0)
+       buff->incrementProcessor();
+    if(interbuff !=0)
+       interbuff->incrementProcessor();
+    if ((ret = mMessageQueue.send(&msg)) != NO_ERROR) {
        if(buff != 0)
-       {
-          buff->incrementProcessor();
-       }
+          buff->decrementProcessor();
        if(interbuff !=0)
-       {
-          interbuff->incrementProcessor();
-       }
+          interbuff->decrementProcessor();
     }
     return ret;
 }
@@ -106,9 +105,9 @@ status_t VideoThread::handleMessageVideo(MessageVideo *msg)
     mVaConvertor->VPPBitBlit(msg->yuv422hbuff->GetRenderTargetHandle(),msg->nv12buff->GetRenderTargetHandle());
     mCallbacks->videoFrameDone(msg->nv12buff, msg->timestamp);
     if (msg->yuv422hbuff != 0)
-        msg->yuv422hbuff->decrementProccessor();
+        msg->yuv422hbuff->decrementProcessor();
     if (msg->nv12buff != 0)
-        msg->nv12buff->decrementProccessor();
+        msg->nv12buff->decrementProcessor();
 
     return status;
 }
@@ -117,6 +116,10 @@ status_t VideoThread::handleMessageFlush()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
+
+    if(mVaConvertor)
+       mVaConvertor->stop();
+
     mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;
 }

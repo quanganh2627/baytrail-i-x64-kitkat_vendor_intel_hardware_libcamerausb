@@ -58,7 +58,7 @@ class CameraBuffer {
 public:
 
     CameraBuffer();
-    virtual ~CameraBuffer();
+    ~CameraBuffer();
 
     int getID() const;
 
@@ -102,7 +102,7 @@ public:
      * Also a processor should always hold a reference before passing the object
      * to another processor.
      */
-    void decrementProccessor();
+    void decrementProcessor();
 
     /**
      * Processors of a buffer should increment reader count
