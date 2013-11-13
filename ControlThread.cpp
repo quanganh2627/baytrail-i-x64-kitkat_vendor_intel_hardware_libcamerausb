@@ -136,6 +136,7 @@ ControlThread::~ControlThread()
         }
         m_pFaceDetector = 0;
     }
+    delete mGraphicBufAlloc;
 }
 
 void ControlThread::initDefaultParams()
@@ -626,6 +627,29 @@ status_t ControlThread::returnVPPNV12Buffer(CameraBuffer *buff)
     }
     return DEAD_OBJECT;
 }
+
+status_t ControlThread::returnCaptureBuffer(CameraBuffer *buff)
+{
+    status_t status = NO_ERROR;
+
+    LOG1("@%s",__FUNCTION__);
+    if (buff == 0)
+        return status;
+
+    if(buff == yuvBuffer || buff == postviewBuffer || buff == interBuff) {
+        mGraphicBufAlloc->free(buff);
+        if(buff == yuvBuffer) {
+            yuvBuffer = 0;
+        } else if (buff == postviewBuffer) {
+            postviewBuffer = 0;
+        } else if (buff == interBuff) {
+            interBuff = 0;
+        }
+        return status;
+    }
+    return DEAD_OBJECT;
+}
+
 int ControlThread::sendCommand(int32_t cmd, int32_t arg1, int32_t arg2)
 {
     Message msg;
@@ -870,7 +894,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
                 ALOGE("allocateGrallocBuffer failed!");
                 goto fail;
              }
-             mJpegdecBufferPool[i].mID = i;
+             mVPPOutBufferPool[i].mID = i;
         }
         allocateGraMetaDataBuffers();
         for (int i = 0; i < mNumVPPOutBuffers; i++) {
@@ -901,6 +925,7 @@ fail:
          mGraphicBufAlloc->free(&mJpegdecBufferPool[i]);
        }
        mFreeJpegBuffers.clear();
+       delete []mJpegdecBufferPool;
        mJpegdecBufferPool = 0;
     }
     delete []all_targets;
@@ -915,6 +940,7 @@ fail:
             mGraphicBufAlloc->free(&mVPPOutBufferPool[i]);
         }
         mFreeVPPOutBuffers.clear();
+        delete []mVPPOutBufferPool;
         mVPPOutBufferPool = 0;
     }
     return status;
@@ -933,6 +959,11 @@ status_t ControlThread::stopPreviewCore()
     if (status != NO_ERROR)
         ALOGE("error flushing preview buffers");
 
+    if(mState == STATE_PREVIEW_VIDEO || mState == STATE_RECORDING) {
+        status = mVideoThread->flushBuffers();
+        if (status != NO_ERROR)
+            ALOGE("error flushing video buffers");
+    }
     status = mDriver->stop();
     if (status == NO_ERROR) {
         mState = STATE_STOPPED;
@@ -954,6 +985,7 @@ status_t ControlThread::stopPreviewCore()
           mGraphicBufAlloc->free(&mJpegdecBufferPool[i]);
        }
        mFreeJpegBuffers.clear();
+       delete []mJpegdecBufferPool;
        mJpegdecBufferPool = 0;
     }
     delete []all_targets;
@@ -968,6 +1000,7 @@ status_t ControlThread::stopPreviewCore()
            mGraphicBufAlloc->free(&mVPPOutBufferPool[i]);
        }
        mFreeVPPOutBuffers.clear();
+       delete []mVPPOutBufferPool;
        mVPPOutBufferPool = 0;
     }
     mLastRecordingBuff = 0;
@@ -1115,7 +1148,7 @@ status_t ControlThread::handleMessageTakePicture()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
-    CameraBuffer *snapshotBuffer = 0, *yuvBuffer=0;
+    CameraBuffer *snapshotBuffer = 0;
     State origState = mState;
     int width = 0;
     int height = 0;
@@ -1225,6 +1258,8 @@ status_t ControlThread::handleMessageTakePicture()
             if(ret != NO_ERROR)
             {
                 ALOGE("allocate graphic buffer failed");
+                if (yuvBuffer != NULL)
+                    mGraphicBufAlloc->free(yuvBuffer);
                 return -1;
             }
             postviewBuffer->setOwner(this);
@@ -1239,6 +1274,10 @@ status_t ControlThread::handleMessageTakePicture()
             if(status != NO_ERROR)
             {
                  ALOGE("allocate graphic buffer failed");
+                 if (yuvBuffer != NULL)
+                    mGraphicBufAlloc->free(yuvBuffer);
+                 if (postviewBuffer != NULL)
+                    mGraphicBufAlloc->free(postviewBuffer);
                  return -1;
             }
             interBuff->setOwner(this);
@@ -1359,7 +1398,7 @@ status_t ControlThread::handleMessageReleaseRecordingFrame(MessageReleaseRecordi
               return DEAD_OBJECT;
         }
         buff->UnLockGrallocData();
-        buff->decrementProccessor();
+        buff->decrementProcessor();
         LOG2("Recording buffer released from encoder, buff id= %d", buff->getID());
     }
     return status;
@@ -1368,6 +1407,9 @@ status_t ControlThread::handleMessageReleaseRecordingFrame(MessageReleaseRecordi
 status_t ControlThread::handleMessageReturnBuffer(MessageReturnBuffer *msg)
 {
     status_t status = NO_ERROR;
+    if(mState == STATE_STOPPED)
+         return status;
+
     CameraBuffer *buff = msg->buff;
     BufferType type = buff->mType;
     LOG1("return buffer id = %d, type=%d,buff=%p", buff->getID(), type,buff);
@@ -1401,7 +1443,7 @@ status_t ControlThread::handleMessageReturnBuffer(MessageReturnBuffer *msg)
         status = returnVPPNV12Buffer(buff);
         break;
     case BUFFER_TYPE_CAP:
-        status = mGraphicBufAlloc->free(buff);
+        status = returnCaptureBuffer(buff);
         break;
     default:
         ALOGE("invalid buffer type for buff %d", buff->getID());

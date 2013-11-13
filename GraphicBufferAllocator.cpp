@@ -188,13 +188,12 @@ status_t CamGraphicBufferAllocator::free(CameraBuffer * buffer)
 {
     LOG1("@%s buffer=%p", __FUNCTION__,buffer);
 
-    if(mGrAllocDev !=NULL)
+    if((mGrAllocDev != NULL) && (buffer != NULL))
     {
        if(buffer->mDecTargetBuf !=NULL)
-       {
            delete buffer->mDecTargetBuf;
-       }
-       mGrAllocDev->free(mGrAllocDev, (buffer->mGrhandle));
+       if(buffer->mGrhandle)
+          mGrAllocDev->free(mGrAllocDev, (buffer->mGrhandle));
    }
    else
    {

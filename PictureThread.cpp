@@ -202,11 +202,11 @@ status_t PictureThread::encode(CameraBuffer *snaphotBuf,CameraBuffer *interBuf, 
         postviewBuf->incrementProcessor();
     if ((ret = mMessageQueue.send(&msg)) != NO_ERROR) {
         if (snaphotBuf != 0)
-            snaphotBuf->decrementProccessor();
+            snaphotBuf->decrementProcessor();
         if (interBuf != 0)
-            interBuf->decrementProccessor();
+            interBuf->decrementProcessor();
         if (postviewBuf != 0)
-            postviewBuf->decrementProccessor();
+            postviewBuf->decrementProcessor();
     }
     return ret;
 }
@@ -230,7 +230,7 @@ void PictureThread::setConfig(Config *config)
 {
     mConfig = *config;
     if(mOutData != NULL)
-        delete mOutData;
+        delete []mOutData;
     mMaxOutDataSize = (mConfig.picture.width * mConfig.picture.height * 3/2);
     if(mMaxOutDataSize != 0)
         mOutData = new unsigned char[mMaxOutDataSize];
@@ -276,8 +276,8 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
         ALOGE("Picture information not set yet!");
         if (msg->snaphotBuf != NULL)
         {
-           msg->snaphotBuf->decrementProccessor();
-           msg->interBuf->decrementProccessor();
+           msg->snaphotBuf->decrementProcessor();
+           msg->interBuf->decrementProcessor();
         }
         return UNKNOWN_ERROR;
     }
@@ -343,11 +343,11 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
     }
     // When the encoding is done, send back the buffers to camera
     if (msg->snaphotBuf != NULL)
-        msg->snaphotBuf->decrementProccessor();
+        msg->snaphotBuf->decrementProcessor();
     if (msg->interBuf!= NULL)
-        msg->interBuf->decrementProccessor();
+        msg->interBuf->decrementProcessor();
     if (msg->postviewBuf!= NULL)
-        msg->postviewBuf->decrementProccessor();
+        msg->postviewBuf->decrementProcessor();
 
     LOG1("Releasing jpegBuf @%p", jpegBuf.getData());
     jpegBuf.releaseMemory();
@@ -359,6 +359,10 @@ status_t PictureThread::handleMessageFlush()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
+
+    if(mVaConvertor)
+       mVaConvertor->stop();
+
     mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;
 }

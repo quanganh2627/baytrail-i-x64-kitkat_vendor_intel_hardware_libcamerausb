@@ -827,7 +827,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
         camBuff->mSize = vbuff.bytesused;
         int len = vbuff.bytesused;
 
-        //write_image(pSrc, len, mConfig.preview.width, mConfig.preview.height, ".jpeg");
+        //write_image(pSrc, len, mConfig.preview.width, mConfig.preview.height, ".jpeg",0);
         JpegInfo *jpginfo = new JpegInfo();
         int status = 0;
 
@@ -836,14 +836,14 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
         status = mJpegDecoder->parse(*jpginfo);
         if(status != 0)
         {
-             ALOGE("parse fail for jpegdec");
+             ALOGE("parse fail for jpegdec,status=%d",status);
              delete jpginfo;
              return status;
         }
         status = mJpegDecoder->decode(*jpginfo, *cur_target);
         if(status != 0)
         {
-            ALOGE("decoder fail");
+            ALOGE("decoder fail,status=%d",status);
             delete jpginfo;
             return status;
         }

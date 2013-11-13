@@ -71,11 +71,15 @@ status_t PipeThread::preview(CameraBuffer *input, CameraBuffer *output,CameraBuf
     msg.data.preview.input = input;
     msg.data.preview.output = output;
     msg.data.preview.midConvert = midConvert;
-    if ((ret = mMessageQueue.send(&msg)) == NO_ERROR) {
+    if (input != 0)
+        input->incrementProcessor();
+    if (output != 0)
+        output->incrementProcessor();
+    if ((ret = mMessageQueue.send(&msg)) != NO_ERROR) {
         if (input != 0)
-            input->incrementProcessor();
+            input->decrementProcessor();
         if (output != 0)
-            output->incrementProcessor();
+            output->decrementProcessor();
     }
     return ret;
 }
@@ -91,20 +95,26 @@ status_t PipeThread::previewVideo(CameraBuffer *input, CameraBuffer *output,Came
     msg.data.previewVideo.toAndroid = toAndroid;
     msg.data.previewVideo.midConvert = midConvert;
     msg.data.previewVideo.timestamp = timestamp;
-    if ((ret = mMessageQueue.send(&msg)) == NO_ERROR) {
+    if (input != 0)
+        input->incrementProcessor();
+    if (output != 0)
+        output->incrementProcessor();
+    if (toAndroid != 0)
+        toAndroid->incrementProcessor();
+    if ((ret = mMessageQueue.send(&msg)) != NO_ERROR) {
         if (input != 0)
-            input->incrementProcessor();
+            input->decrementProcessor();
         if (output != 0)
-            output->incrementProcessor();
+            output->decrementProcessor();
         if (toAndroid != 0)
-            toAndroid->incrementProcessor();
+            toAndroid->decrementProcessor();
     }
     return ret;
 }
 
 status_t PipeThread::flushBuffers()
 {
-    LOG1("@%s", __FUNCTION__);
+    LOG2("@%s", __FUNCTION__);
     Message msg;
     msg.id = MESSAGE_ID_FLUSH;
     mMessageQueue.remove(MESSAGE_ID_PREVIEW);
@@ -125,17 +135,15 @@ status_t PipeThread::handleMessagePreview(MessagePreview *msg)
     LOG2("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
 
-    if (status == NO_ERROR) {
-        CameraBuffer *previewIn = msg->input;
-        CameraBuffer *previewOut = msg->output;
-        CameraBuffer *midConvert = msg->midConvert;
-        status = mPreviewThread->preview(previewIn, previewOut,midConvert);
-        if (status != NO_ERROR) {
-            ALOGE("failed to send preview buffer");
-        }
+    CameraBuffer *previewIn = msg->input;
+    CameraBuffer *previewOut = msg->output;
+    CameraBuffer *midConvert = msg->midConvert;
+    status = mPreviewThread->preview(previewIn, previewOut,midConvert);
+    if (status != NO_ERROR) {
+        ALOGE("failed to send preview buffer");
     }
-    msg->input->decrementProccessor();
-    msg->output->decrementProccessor();
+    msg->input->decrementProcessor();
+    msg->output->decrementProcessor();
     return status;
 }
 
@@ -144,27 +152,24 @@ status_t PipeThread::handleMessagePreviewVideo(MessagePreviewVideo *msg)
     LOG2("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
 
+    CameraBuffer *previewIn = msg->input;//yuv422h
+    CameraBuffer *previewOut = msg->toAndroid;//memory heap
+    CameraBuffer *midConvert = msg->midConvert;
+    CameraBuffer *video = msg->output;
 
+    status = mPreviewThread->preview(previewIn, previewOut,midConvert);
     if (status == NO_ERROR) {
-        CameraBuffer *previewIn = msg->input;//yuv422h
-        CameraBuffer *previewOut = msg->toAndroid;//memory heap
-        CameraBuffer *midConvert = msg->midConvert;
-        CameraBuffer *video = msg->output;
-
-        status = mPreviewThread->preview(previewIn, previewOut,midConvert);
-        if (status == NO_ERROR) {
-            status = mVideoThread->video(previewIn,video,msg->timestamp);
-            if (status != NO_ERROR) {
-                ALOGE("failed to send preview buffer");
-            }
-        } else {
-             ALOGE("failed to send preview buffer");
+        status = mVideoThread->video(previewIn,video,msg->timestamp);
+        if (status != NO_ERROR) {
+            ALOGE("failed to send preview buffer");
         }
+    } else {
+        ALOGE("failed to send preview buffer");
     }
     //we are done with the buffer
-    msg->input->decrementProccessor();
-    msg->output->decrementProccessor();
-    msg->toAndroid->decrementProccessor();
+    msg->input->decrementProcessor();
+    msg->output->decrementProcessor();
+    msg->toAndroid->decrementProcessor();
     return status;
 }
 

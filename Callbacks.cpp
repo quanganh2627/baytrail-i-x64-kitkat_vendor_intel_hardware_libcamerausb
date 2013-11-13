@@ -87,7 +87,7 @@ void Callbacks::previewFrameDone(CameraBuffer *buff)
         LOG2("Sending message: CAMERA_MSG_PREVIEW_FRAME, buff id = %d", buff->getID());
         buff->incrementProcessor();
         mDataCB(CAMERA_MSG_PREVIEW_FRAME, buff->getCameraMem(), 0, NULL, mUserToken);
-        buff->decrementProccessor();
+        buff->decrementProcessor();
     }
 }
 
@@ -139,7 +139,7 @@ void Callbacks::compressedFrameDone(CameraBuffer *buff)
         LOG1("Sending message: CAMERA_MSG_COMPRESSED_IMAGE, buff id = %d", buff->getID());
         buff->incrementProcessor();
         mDataCB(CAMERA_MSG_COMPRESSED_IMAGE, buff->getCameraMem(), 0, NULL, mUserToken);
-        buff->decrementProccessor();
+        buff->decrementProcessor();
     }
 }
 
@@ -167,7 +167,7 @@ void Callbacks::facesDetected(camera_frame_metadata_t &face_metadata, CameraBuff
              &face_metadata,
              mUserToken);
     }
-    buff->decrementProccessor();
+    buff->decrementProcessor();
 }
 
 camera_memory_t* Callbacks::allocateMemory(int size)
