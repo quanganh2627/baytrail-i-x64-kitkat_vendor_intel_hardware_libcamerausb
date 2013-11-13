@@ -98,7 +98,7 @@ camera_memory_t* CameraBuffer::getCameraMem()
     return mCamMem;
 }
 
-void CameraBuffer::decrementProccessor()
+void CameraBuffer::decrementProcessor()
 {
     android_atomic_dec(&mProcessorCount);
     // if all decrements done and count is zero
@@ -117,7 +117,7 @@ void CameraBuffer::setOwner(IBufferOwner* o)
 {
     if (mOwner == 0)
         mOwner = o;
-    else {
+    else if(mOwner != o) {
         ALOGE("taking ownership from previous owner is not allowed.");
     }
 }

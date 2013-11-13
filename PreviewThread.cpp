@@ -83,11 +83,15 @@ status_t PreviewThread::preview(CameraBuffer *inputBuff, CameraBuffer *outputBuf
     msg.data.preview.inputBuff = inputBuff;
     msg.data.preview.outputBuff = outputBuff;
     msg.data.preview.midConvert = midConvert;
-    if ((ret = mMessageQueue.send(&msg)) == NO_ERROR) {
+    if (inputBuff != 0)
+        inputBuff->incrementProcessor();
+    if (outputBuff != 0)
+        outputBuff->incrementProcessor();
+    if ((ret = mMessageQueue.send(&msg)) != NO_ERROR) {
         if (inputBuff != 0)
-            inputBuff->incrementProcessor();
+            inputBuff->decrementProcessor();
         if (outputBuff != 0)
-            outputBuff->incrementProcessor();
+            outputBuff->decrementProcessor();
     }
     return ret;
 }
@@ -182,10 +186,10 @@ exit:
     }
     if(msg->inputBuff)
     {
-       msg->inputBuff->decrementProccessor();
+       msg->inputBuff->decrementProcessor();
     }
     if (msg->outputBuff)
-        msg->outputBuff->decrementProccessor();
+        msg->outputBuff->decrementProcessor();
     return status;
 }
 
@@ -243,6 +247,10 @@ status_t PreviewThread::handleMessageFlush()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
+
+    if(mVaConvertor)
+       mVaConvertor->stop();
+
     mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;
 }

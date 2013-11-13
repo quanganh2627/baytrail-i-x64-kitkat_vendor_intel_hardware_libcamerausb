@@ -102,7 +102,6 @@ status_t VAConvertor::deInit()
 {
     LOG1("@%s", __FUNCTION__);
 
-    //for some reasion of vpp lib. It can not be destructed at the moment.
     if (mVPP) {
         delete mVPP;
         mVPP = NULL;
@@ -128,6 +127,17 @@ status_t VAConvertor::deInit()
     mOIDKey = 0;
     return OK;
 }
+
+status_t VAConvertor::stop()
+{
+    LOG1("@%s", __FUNCTION__);
+
+    if (mVA) {
+        mVA->stop();
+    }
+    return OK;
+}
+
 int VAConvertor::processFrame(int inputBufferId, int outputBufferId)
 {
     VAStatus vaStatus;
@@ -172,7 +182,7 @@ status_t VAConvertor::mapV4L2FmtToVAFmt(int &vaRTFormat, int &vaFourcc, int grap
             vaFourcc = VA_FOURCC_YV12;
             break;
          default:
-            LOGE("Graphic format:%x is not supported", graphicFormat);
+            LOGW("Graphic format:%x is not supported", graphicFormat);
             return BAD_VALUE;
     }
 
@@ -200,7 +210,7 @@ status_t VAConvertor::mapGraphicFmtToVAFmt(int &vaRTFormat, int &vaFourcc, int g
              vaFourcc = VA_FOURCC_YV12;
              break;
         default:
-            LOGE("Graphic format:%x is not supported", graphicFormat);
+            LOGW("Graphic format:%x is not supported", graphicFormat);
             return BAD_VALUE;
     }
 
@@ -285,7 +295,7 @@ void VAConvertor::removeOutputBuffer(int bufferId)
     mOBuffers.removeItem(bufferId);
 }
 
-status_t VAConvertor::VPPColorConverter(buffer_handle_t input_handle,buffer_handle_t output_handle,int mWidth,int mHeight,int mInputFormat,int mOutputFormat)
+status_t VAConvertor::VPPColorConverter(buffer_handle_t input_handle,buffer_handle_t output_handle,int mInWidth,int mInHeight,int mInputFormat,int mOutWidth,int mOutHeight,int mOutputFormat)
 {
     status_t status = NO_ERROR;
     int inIDkey = 0;
@@ -295,8 +305,8 @@ status_t VAConvertor::VPPColorConverter(buffer_handle_t input_handle,buffer_hand
        LOGE("input handle =%p, output handle =%p",input_handle,output_handle);
        return -1;//to be changed
      }
-     inIDkey= addInputBuffer(input_handle,mWidth,mHeight,mInputFormat);
-     OutIDKey = addOutputBuffer(output_handle,mWidth,mHeight,mOutputFormat);
+     inIDkey= addInputBuffer(input_handle,mInWidth,mInHeight,mInputFormat);
+     OutIDKey = addOutputBuffer(output_handle,mOutWidth,mOutHeight,mOutputFormat);
      processFrame(inIDkey,OutIDKey);
      removeInputBuffer(inIDkey);
      removeOutputBuffer(OutIDKey);

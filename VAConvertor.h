@@ -74,12 +74,13 @@ public:
 
 // public methods
 public:
+    status_t stop();
     int  processFrame(int inputBufferId, int outputBufferId);
     int  addInputBuffer(buffer_handle_t pBufHandle, int width, int height, int format);
     int  addOutputBuffer(buffer_handle_t pBufHandle, int width, int height, int format);
     void removeInputBuffer(int bufferId);
     void removeOutputBuffer(int bufferId);
-    status_t VPPColorConverter(buffer_handle_t input_handle,buffer_handle_t output_handle,int mWidth,int mHeight,int mInputFormat,int mOutputFormat);
+    status_t VPPColorConverter(buffer_handle_t input_handle,buffer_handle_t output_handle,int mInWidth,int mInHeight,int mInputFormat,int mOutWidth,int mOutHeight,int mOutputFormat);
     status_t VPPBitBlit(RenderTarget *in,RenderTarget *out);
     status_t ConfigBuffer(RenderTarget *rt,buffer_handle_t pBufHandle, int width, int height, int format);
     status_t mapGraphicFmtToVAFmt(int &vaRTFormat, int &vaFourcc, int graphicFormat);
