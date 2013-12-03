@@ -538,6 +538,14 @@ int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers,
         ret = -1;
     }
 
+    //set power line frequency, if there is no special define for 60HZ,it will be set 50HZ in default.
+    #ifdef CONFIG_60HZ
+    status = setPowerLineFrequency(FREQUENCY_60HZ);
+    #else
+    status = setPowerLineFrequency(FREQUENCY_50HZ);
+    #endif
+    if(status != NO_ERROR)
+       ret = -1;
     return ret;
 }
 
@@ -1934,5 +1942,25 @@ status_t CameraDriver::setMeteringAreas(CameraWindow *windows, int numWindows)
     ALOGE("metering not supported");
     return INVALID_OPERATION;
 }
+
+status_t CameraDriver::setPowerLineFrequency(PowerLineFrequency frequency)
+{
+    struct v4l2_control control;
+    int fd = mCameraSensor[mCameraId]->fd;
+
+    LOG1("@%s, frequency=%d", __FUNCTION__,frequency);
+
+    memset (&control, 0, sizeof (control));
+    control.id = V4L2_CID_POWER_LINE_FREQUENCY;
+    control.value = frequency;
+
+    if (-1 == ioctl (fd, VIDIOC_S_CTRL, &control)) {
+        ALOGE ("set power line frequency failed in Camera Driver");
+        return UNKNOWN_ERROR;
+    }
+
+    return NO_ERROR;
+}
+
 
 } // namespace android

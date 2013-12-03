@@ -7,6 +7,10 @@ ifeq ($(USE_INTEL_METABUFFER),true)
 LOCAL_CFLAGS += -DENABLE_INTEL_METABUFFER
 endif
 
+ifeq ($(USE_60HZ_POWER_LINE_FREQUENCY),true)
+LOCAL_CFLAGS += -DCONFIG_60HZ
+endif
+
 LOCAL_SRC_FILES := \
         DumpImage.cpp \
 	ControlThread.cpp \
