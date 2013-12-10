@@ -34,7 +34,7 @@ class PreviewThread : public Thread {
 
 // constructor destructor
 public:
-    PreviewThread();
+    PreviewThread(int display_format);
     virtual ~PreviewThread();
 
 // Thread overrides

@@ -19,6 +19,7 @@
 #include "CameraDriver.h"
 #include <utils/Log.h>
 #include <utils/threads.h>
+#include <cutils/properties.h>
 
 using namespace android;
 
@@ -56,7 +57,8 @@ static int CAMERA_GetCameraInfo(int camera_id,
 static camera_hal camera_instance;
 static int num_camera_instances = 0;
 static Mutex camera_instance_lock; // for locking num_camera_instances only
-
+static BoardPlatform board_platform = BOARD_PLATFORM_UNINITIALIZED;
+static char board_platform_name[PROPERTY_VALUE_MAX] = "";
 static struct hw_module_methods_t camera_module_methods = {
     open: CAMERA_OpenCameraHardware
 };
@@ -296,6 +298,40 @@ static int camera_dump(struct camera_device * device, int fd)
     return 0;
 }
 
+static void retrieve_board_platform_info()
+{
+    board_platform = BOARD_PLATFORM_INVALID;
+
+    if (0 != property_get("ro.board.platform", board_platform_name, 0)) {
+        if(!strncmp(board_platform_name, "haswell", PROPERTY_VALUE_MAX) )
+           board_platform = BOARD_PLATFORM_HASWELL;
+        else if(!strncmp(board_platform_name, "baytrail", PROPERTY_VALUE_MAX))
+           board_platform = BOARD_PLATFORM_BAYTRAIL;
+    } else {
+        ALOGE("error: Could not get platform information");
+    }
+
+    return;
+}
+
+char* get_board_platform_name()
+{
+    if(board_platform == BOARD_PLATFORM_UNINITIALIZED) {
+       retrieve_board_platform_info();
+    }
+
+    return board_platform_name;
+}
+
+
+BoardPlatform get_board_platform()
+{
+    if(board_platform == BOARD_PLATFORM_UNINITIALIZED) {
+       retrieve_board_platform_info();
+    }
+
+    return board_platform;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //                              HAL OPERATIONS TABLE

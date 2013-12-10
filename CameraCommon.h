@@ -36,6 +36,13 @@
 
 namespace android {
 
+enum BoardPlatform {
+    BOARD_PLATFORM_UNINITIALIZED = -1,
+    BOARD_PLATFORM_INVALID  = 0,
+    BOARD_PLATFORM_HASWELL,
+    BOARD_PLATFORM_BAYTRAIL,
+    BOARD_PLATFORM_MAX,
+};
 
 struct CameraWindow {
     int x_left;
@@ -116,4 +123,8 @@ static const char* v4l2Fmt2Str(int format)
 }
 
 }
+
+BoardPlatform get_board_platform();
+char* get_board_platform_name();
+
 #endif // ANDROID_LIBCAMERA_COMMON_H

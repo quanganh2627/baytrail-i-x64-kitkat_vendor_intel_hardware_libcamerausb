@@ -38,7 +38,7 @@ namespace android {
 ControlThread::ControlThread(int cameraId) :
     Thread(true) // callbacks may call into java
     ,mDriver(new CameraDriver(cameraId))
-    ,mPreviewThread(new PreviewThread())
+    ,mPreviewThread(new PreviewThread(getDisplayFormat()))
     ,mPictureThread(new PictureThread())
     ,mVideoThread(new VideoThread())
     ,mPipeThread(new PipeThread())
@@ -59,8 +59,8 @@ ControlThread::ControlThread(int cameraId) :
     ,mNumJpegdecBuffers(6)
     ,mVPPOutBufferPool(0)
     ,mNumVPPOutBuffers(6)
-    ,mDecoderedFormat(V4L2_PIX_FMT_YUV422P)
-    ,mRecordformat(V4L2_PIX_FMT_NV12)
+    ,mDecoderedFormat(getDecoderFormat())
+    ,mRecordformat(getVideoFormat())
     ,mJpegEncoderFormat(V4L2_PIX_FMT_NV12)
 {
     LOG1("@%s: cameraId = %d", __FUNCTION__, cameraId);
@@ -751,6 +751,56 @@ void ControlThread::freeGraMetaDataBuffers()
         }
     }
 }
+
+int ControlThread::getDisplayFormat()
+{
+    int format = HAL_PIXEL_FORMAT_YCbCr_422_I;
+    switch(get_board_platform()) {
+       case BOARD_PLATFORM_HASWELL:
+       case BOARD_PLATFORM_BAYTRAIL:
+            format = HAL_PIXEL_FORMAT_YCbCr_422_I;
+            break;
+       default:
+            ALOGE("Error: No display format known for platform %s", get_board_platform_name());
+            break;
+   };
+   return format;
+}
+
+int ControlThread::getDecoderFormat()
+{
+    int format = V4L2_PIX_FMT_NV12;
+    switch(get_board_platform()) {
+       case BOARD_PLATFORM_HASWELL:
+            format = V4L2_PIX_FMT_NV12;
+            break;
+       case BOARD_PLATFORM_BAYTRAIL:
+            format = V4L2_PIX_FMT_YUV422P;
+            break;
+       default:
+            ALOGE("Error: No decoder format known for platform %s", get_board_platform_name());
+            break;
+   };
+
+   return format;
+}
+
+int ControlThread::getVideoFormat()
+{
+    int format = V4L2_PIX_FMT_NV12;
+    switch(get_board_platform()) {
+       case BOARD_PLATFORM_HASWELL:
+       case BOARD_PLATFORM_BAYTRAIL:
+            format = V4L2_PIX_FMT_NV12;
+            break;
+       default:
+            ALOGE("Error: No Video format known for platform %s", get_board_platform_name());
+            break;
+   };
+
+   return format;
+}
+
 status_t ControlThread::startPreviewCore(bool videoMode)
 {
     LOG1("@%s", __FUNCTION__);
@@ -824,6 +874,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
             goto fail;
         }
         mJpegdecBufferPool[i].mID = i;
+        mJpegdecBufferPool[i].mType = BUFFER_TYPE_JPEGDEC;
         all_targets[i] = mJpegdecBufferPool[i].mDecTargetBuf;
     }
     for (int i = 0; i < mNumJpegdecBuffers; i++) {

@@ -342,6 +342,9 @@ private:
     status_t allocateGraMetaDataBuffers();
     void freeGraMetaDataBuffers();
 
+    int getDisplayFormat();
+    int getDecoderFormat();
+    int getVideoFormat();
 // inherited from Thread
 private:
     virtual bool threadLoop();
@@ -393,7 +396,6 @@ private:
     int mDecoderedFormat;
     int mRecordformat;
     int mJpegEncoderFormat;
-
 }; // class ControlThread
 
 }; // namespace android

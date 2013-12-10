@@ -28,7 +28,7 @@
 
 namespace android {
 
-PreviewThread::PreviewThread() :
+PreviewThread::PreviewThread(int display_format) :
     Thread(true) // callbacks may call into java
     ,mMessageQueue("PreviewThread", (int) MESSAGE_ID_MAX)
     ,mThreadRunning(false)
@@ -39,7 +39,7 @@ PreviewThread::PreviewThread() :
     ,mPreviewHeight(480)
     ,mInputFormat(0)
     ,mOutputFormat(0)
-    ,mGFXHALPixelFormat(HAL_PIXEL_FORMAT_YCbCr_422_I)
+    ,mGFXHALPixelFormat(display_format)
     ,mVaConvertor(new VAConvertor())
 {
     LOG1("@%s", __FUNCTION__);
