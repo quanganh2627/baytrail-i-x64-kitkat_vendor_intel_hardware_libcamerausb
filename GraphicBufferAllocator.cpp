@@ -79,6 +79,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     int stride = 0;
     int HalFormat = 0;
     int alignedheight = 0;
+    int flags = 0;
 
     buffer_handle_t handle;
     struct mfx_gralloc_drm_handle_t *pGrallocHandle;
@@ -100,7 +101,8 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
         format = V4L2_PIX_FMT_YVU420;
     }
     HalFormat = V4L2FormatToHalPixel(format);
-    if(HalFormat == HAL_PIXEL_FORMAT_NV12 || HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL) // for video encoder
+    if(HalFormat == HAL_PIXEL_FORMAT_NV12 || HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL
+       || HalFormat == HAL_PIXEL_FORMAT_NV12_LINEAR_PACKED_INTEL) // for video encoder
     {
        gcamBuff->mType = BUFFER_TYPE_VIDEOENCODER;
     }
@@ -108,10 +110,32 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     {
        gcamBuff->mType = BUFFER_TYPE_JPEGDEC;
     }
-    alignedheight = ALIGN(height,32);
+
+    switch(get_board_platform()) {
+       case BOARD_PLATFORM_HASWELL:
+         if (format != V4L2_PIX_FMT_NV12_PACKED) {
+           flags = GRALLOC_USAGE_HW_RENDER;
+           alignedheight = ALIGN(height,32);;
+         } else {
+           flags = GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_HW_CAMERA_MASK;
+           // Don't need 32-b alignment for haswell encoder
+           alignedheight = height;
+         }
+         break;
+       case BOARD_PLATFORM_BAYTRAIL:
+         flags = GRALLOC_USAGE_HW_RENDER;
+         alignedheight = ALIGN(height,32);
+         break;
+       default:
+         flags = GRALLOC_USAGE_HW_RENDER;
+         alignedheight = ALIGN(height,32);
+         ALOGE("Error: Camera buffer flags and alignment not known for platform %s", get_board_platform_name());
+         break;
+    }
+
     res = mGrAllocDev->alloc(mGrAllocDev, width, alignedheight,
             HalFormat,
-            GRALLOC_USAGE_HW_RENDER,
+            flags,
             &handle, &stride);
     if(res != NO_ERROR)
     {
@@ -126,7 +150,8 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     }
     pGrallocHandle = (struct mfx_gralloc_drm_handle_t *)handle;
     gcamBuff->mStride = pGrallocHandle->pitch;
-    if((HalFormat == HAL_PIXEL_FORMAT_NV12) ||(HalFormat == HAL_PIXEL_FORMAT_YV12) || (HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL))
+    if((HalFormat == HAL_PIXEL_FORMAT_NV12) ||(HalFormat == HAL_PIXEL_FORMAT_YV12) || (HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL)
+        || (HalFormat == HAL_PIXEL_FORMAT_NV12_LINEAR_PACKED_INTEL))
     {
          gcamBuff->mGraBuffSize = pGrallocHandle->pitch * height *3/2;
     }

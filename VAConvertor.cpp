@@ -185,6 +185,7 @@ status_t VAConvertor::mapGraphicFmtToVAFmt(int &vaRTFormat, int &vaFourcc, int g
     switch (graphicFormat) {
         case HAL_PIXEL_FORMAT_NV12:
         case HAL_PIXEL_FORMAT_NV12_TILED_INTEL:
+        case HAL_PIXEL_FORMAT_NV12_LINEAR_PACKED_INTEL:
             vaRTFormat = VA_RT_FORMAT_YUV420;
             vaFourcc   = VA_FOURCC_NV12;
             break;

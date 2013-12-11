@@ -21,6 +21,10 @@
 
 namespace android {
 
+// New v4l2 packed format used in haswell
+#define color_fourcc(a, b, c, d) ((__u32)(a) | ((__u32)(b) << 8) | ((__u32)(c) << 16) | ((__u32)(d) << 24))
+#define V4L2_PIX_FMT_NV12_PACKED color_fourcc('N', 'V', '1', 'P') // 12  Y/CbCr 4:2:0  Packed
+
 status_t colorConvert(int srcFormat, int dstFormat, int width, int height, void *src, void *dst);
 status_t colorConvertwithStride(int srcFormat, int dstFormat, int stride,int width, int alignHeight, int height, void *src, void *dst);
 

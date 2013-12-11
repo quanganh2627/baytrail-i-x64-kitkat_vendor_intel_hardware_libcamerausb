@@ -287,8 +287,8 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
          }
          alignThumbnailHeight = ALIGN(mConfig.thumbnail.height,32);
          mVaConvertor->VPPBitBlit(msg->interBuf->GetRenderTargetHandle(),msg->postviewBuf->GetRenderTargetHandle());
-         msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
-         msg->interBuf->LockGrallocData(snapshotbuff,&size);
+         msg->postviewBuf->LockGrallocData(thumbnailbuff,&size,BUFFER_TYPE_THUMBNAIL);
+         msg->interBuf->LockGrallocData(snapshotbuff,&size,BUFFER_TYPE_SNAPSHOT);
          if ((status = encodeToJpeg(snapshotbuff[0], thumbnailbuff[0], &jpegBuf,msg->interBuf->GetGraStride(),msg->postviewBuf->GetGraStride(),alignPicHeight,alignThumbnailHeight)) == NO_ERROR) {
                mCallbacks->compressedRawFrameDone(msg->snaphotBuf);
                mCallbacks->compressedFrameDone(&jpegBuf);

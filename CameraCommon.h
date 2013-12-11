@@ -17,11 +17,10 @@
 #ifndef ANDROID_LIBCAMERA_COMMON_H
 #define ANDROID_LIBCAMERA_COMMON_H
 #include <linux/videodev2.h>
+#include <ufo/graphics.h>
 #include <stdio.h>
 #include <VideoVPPBase.h>
-#include "CameraBuffer.h"
 #include "IntelMetadataBuffer.h"
-#include "GraphicBufferAllocator.h"
 
 //This file define the general configuration for the camera driver
 
@@ -32,7 +31,6 @@
 // macro CLIP is used to clip the Number value to between the Min and Max
 #define CLIP(Number, Max, Min)    ((Number) > (Max) ? (Max) : ((Number) < (Min) ? (Min) : (Number)))
 #define ALIGN(x, align)                  (((x) + (align) - 1) & (~((align) - 1)))
-
 
 namespace android {
 
@@ -126,5 +124,8 @@ static const char* v4l2Fmt2Str(int format)
 
 BoardPlatform get_board_platform();
 char* get_board_platform_name();
+
+#include "GraphicBufferAllocator.h"
+#include "CameraBuffer.h"
 
 #endif // ANDROID_LIBCAMERA_COMMON_H

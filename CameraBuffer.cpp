@@ -53,11 +53,28 @@ void* CameraBuffer::getData()
     return mData;
 }
 
-void CameraBuffer::LockGrallocData(void** addr,int* size)
+void CameraBuffer::LockGrallocData(void** addr,int* size, BufferType type)
 {
     int res =0;
+    int flags = GRALLOC_USAGE_SW_READ_MASK;
+
+    switch(get_board_platform()) {
+       case BOARD_PLATFORM_HASWELL:
+           if (type == BUFFER_TYPE_SNAPSHOT || type == BUFFER_TYPE_THUMBNAIL)
+               flags = GRALLOC_USAGE_SW_READ_MASK;
+           else
+               flags = GRALLOC_USAGE_HW_CAMERA_READ | GRALLOC_USAGE_HW_CAMERA_WRITE | GRALLOC_USAGE_HW_VIDEO_ENCODER
+                       | GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK;
+           break;
+       case BOARD_PLATFORM_BAYTRAIL:
+           flags = GRALLOC_USAGE_SW_READ_MASK;
+           break;
+       default:
+           ALOGE("Error: Camera buffer flags not known for platform %s", get_board_platform_name());
+           break;
+    };
     res =  mGralloc_module->lock(mGralloc_module, mGrhandle,
-                GRALLOC_USAGE_SW_READ_MASK,
+                flags,
                 0, 0, mWidth, mHeight, addr);
     *size = mGraBuffSize;
 }

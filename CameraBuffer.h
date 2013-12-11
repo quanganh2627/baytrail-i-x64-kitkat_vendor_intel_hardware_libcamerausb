@@ -104,7 +104,7 @@ public:
      * as soon as it holds a reference before accessing data in the buffer.
      */
     void incrementProcessor();
-    void LockGrallocData(void** addr,int* size);
+    void LockGrallocData(void** addr,int* size, BufferType type = BUFFER_TYPE_JPEGDEC);
     void UnLockGrallocData();
     buffer_handle_t GetGrabuffHandle();
 

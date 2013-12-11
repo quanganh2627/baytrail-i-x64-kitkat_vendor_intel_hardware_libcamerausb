@@ -69,23 +69,25 @@ private:
 
 }; // class GraphicBufferAllocator
 
-struct mfx_gralloc_drm_handle_t {
-    native_handle_t base;
+struct mfx_gralloc_drm_handle_t : native_handle
+{
     int magic;
-
     int width;
     int height;
     int format;
     int usage;
 
-    int name;
-    int pid;  // creator
-    mutable int other;    // registered owner (pid)
-    mutable union { int data1; mutable drm_intel_bo *bo; };  // drm buffer object
-    union { int data2; uint32_t fb; }; // framebuffer id
-    int pitch;    // buffer pitch (in bytes)
-    int allocWidth;  // Allocated buffer width in pixels
-    int allocHeight;   // Allocated buffer height in lines
+    int pid; // creator
+    int name; // see drm_bo_flink
+
+    union { int data0; uint32_t fb; }; // drm framebuffer id
+    union { int data1; uint32_t drmformat; }; // drm framebuffer format
+    union { int data2; uint32_t gmmformat; }; // gmm buffer format
+    int bpp; // pixel size (bytes per pixel)
+    int pitch; // buffer pitch (in bytes)
+    int allocWidth; // Allocated buffer width in pixels.
+    int allocHeight; // Allocated buffer height in lines.
+
 };
 
 }; // namespace android

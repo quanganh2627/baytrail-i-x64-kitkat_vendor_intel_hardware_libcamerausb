@@ -790,6 +790,8 @@ int ControlThread::getVideoFormat()
     int format = V4L2_PIX_FMT_NV12;
     switch(get_board_platform()) {
        case BOARD_PLATFORM_HASWELL:
+            format = V4L2_PIX_FMT_NV12_PACKED;
+            break;
        case BOARD_PLATFORM_BAYTRAIL:
             format = V4L2_PIX_FMT_NV12;
             break;

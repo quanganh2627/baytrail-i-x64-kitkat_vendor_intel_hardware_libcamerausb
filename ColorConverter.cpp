@@ -1059,6 +1059,8 @@ int V4L2FormatToHalPixel(int format)
             return HAL_PIXEL_FORMAT_YV12;
         case V4L2_PIX_FMT_NV12:
             return HAL_PIXEL_FORMAT_NV12_TILED_INTEL;
+        case V4L2_PIX_FMT_NV12_PACKED:
+            return HAL_PIXEL_FORMAT_NV12_LINEAR_PACKED_INTEL;
         case V4L2_PIX_FMT_NV21:
             return HAL_PIXEL_FORMAT_YCrCb_420_SP;
         case V4L2_PIX_FMT_YUV422P:
@@ -1076,6 +1078,7 @@ int HalPixelToV4L2Format(int format)
         case HAL_PIXEL_FORMAT_YV12:
             return V4L2_PIX_FMT_YVU420;
         case HAL_PIXEL_FORMAT_NV12_TILED_INTEL:
+        case HAL_PIXEL_FORMAT_NV12_LINEAR_PACKED_INTEL:
             return V4L2_PIX_FMT_NV12;
         case HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL:
             return V4L2_PIX_FMT_YUV422P;
