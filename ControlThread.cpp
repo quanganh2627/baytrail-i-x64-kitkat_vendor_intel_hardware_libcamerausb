@@ -1083,7 +1083,6 @@ status_t ControlThread::handleMessageStopPreview()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
-    // In STATE_CAPTURE, preview is already stopped, nothing to do
     if (mState != STATE_CAPTURE) {
         stopFaceDetection(true);
         if (mState != STATE_STOPPED) {
@@ -1091,6 +1090,15 @@ status_t ControlThread::handleMessageStopPreview()
         } else {
             ALOGE("Error stopping preview. Invalid state!");
             status = INVALID_OPERATION;
+        }
+    } else {
+        // If preview is stopped immediately after capture,
+        // camera device remains open. Stop capture will
+        // take care of this issue.
+        status = stopCapture();
+        if (status != NO_ERROR) {
+            ALOGE("Could not stop capture before start preview!");
+            return status;
         }
     }
     // return status and unblock message sender
