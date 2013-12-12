@@ -33,7 +33,7 @@ PreviewThread::PreviewThread(int display_format) :
     ,mMessageQueue("PreviewThread", (int) MESSAGE_ID_MAX)
     ,mThreadRunning(false)
     ,mDebugFPS(new DebugFrameRate())
-    ,mCallbacks(Callbacks::getInstance())
+    ,mCallbacks(NULL)
     ,mPreviewWindow(NULL)
     ,mPreviewWidth(640)
     ,mPreviewHeight(480)
@@ -51,6 +51,9 @@ PreviewThread::~PreviewThread()
     mDebugFPS.clear();
     if(mVaConvertor !=NULL)
        delete mVaConvertor;
+
+    if(mCallbacks.get())
+        mCallbacks.clear();
 }
 
 status_t PreviewThread::setPreviewWindow(struct preview_stream_ops *window)

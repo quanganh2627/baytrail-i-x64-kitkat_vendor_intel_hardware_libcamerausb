@@ -24,17 +24,9 @@
 #include "IFaceDetectionListener.h"
 namespace android {
 
-class Callbacks : public IFaceDetectionListener {
-
-    static Callbacks* mInstance;
-    Callbacks();
+class Callbacks : public RefBase, public IFaceDetectionListener {
 public:
-    static Callbacks* getInstance() {
-        if (mInstance == NULL) {
-            mInstance = new Callbacks();
-        }
-        return mInstance;
-    }
+    Callbacks();
     virtual ~Callbacks();
 
 public:

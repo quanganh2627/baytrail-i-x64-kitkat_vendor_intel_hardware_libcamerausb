@@ -35,7 +35,7 @@ PictureThread::PictureThread() :
     Thread(true) // callbacks may call into java
     ,mMessageQueue("PictureThread", MESSAGE_ID_MAX)
     ,mThreadRunning(false)
-    ,mCallbacks(Callbacks::getInstance())
+    ,mCallbacks(NULL)
     ,mOutData(NULL)
     ,mExifBuf(NULL)
     ,mVaConvertor(new VAConvertor())
@@ -55,6 +55,9 @@ PictureThread::~PictureThread()
     }
     if(mVaConvertor !=NULL)
        delete mVaConvertor;
+
+    if(mCallbacks.get())
+        mCallbacks.clear();
 }
 
 /*
@@ -155,7 +158,7 @@ status_t PictureThread::encodeToJpeg(void *mainBuf, void *thumbBuf, CameraBuffer
     }
 
     if (status == NO_ERROR) {
-        CameraMemoryAllocator::instance()->allocateMemory(destBuf,totalSize);
+        CameraMemoryAllocator::instance()->allocateMemory(destBuf,totalSize,mCallbacks.get());
         if (destBuf->getData() == 0) {
             ALOGE("No memory for final JPEG file!");
             status = NO_MEMORY;

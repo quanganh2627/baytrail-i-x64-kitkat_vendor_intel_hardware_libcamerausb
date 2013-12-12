@@ -22,7 +22,6 @@
 
 namespace android {
 
-Callbacks* Callbacks::mInstance = NULL;
 
 Callbacks::Callbacks() :
     mNotifyCB(NULL)
@@ -40,7 +39,6 @@ Callbacks::Callbacks() :
 Callbacks::~Callbacks()
 {
     LOG1("@%s", __FUNCTION__);
-    mInstance = NULL;
     if (mDummyByte != NULL) mDummyByte->release(mDummyByte);
 }
 

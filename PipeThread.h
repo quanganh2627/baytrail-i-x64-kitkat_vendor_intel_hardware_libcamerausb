@@ -22,6 +22,7 @@
 #include "MessageQueue.h"
 #include "CameraCommon.h"
 #include "VAConvertor.h"
+#include "Callbacks.h"
 
 namespace android {
 

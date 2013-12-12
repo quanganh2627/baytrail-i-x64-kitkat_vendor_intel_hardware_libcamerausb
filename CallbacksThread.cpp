@@ -21,13 +21,11 @@
 
 namespace android {
 
-CallbacksThread* CallbacksThread::mInstance = NULL;
-
 CallbacksThread::CallbacksThread() :
     Thread(true) // callbacks may call into java
     ,mMessageQueue("CallbacksThread", MESSAGE_ID_MAX)
     ,mThreadRunning(false)
-    ,mCallbacks(Callbacks::getInstance())
+    ,mCallbacks(NULL)
 {
     LOG1("@%s", __FUNCTION__);
 }
@@ -35,7 +33,9 @@ CallbacksThread::CallbacksThread() :
 CallbacksThread::~CallbacksThread()
 {
     LOG1("@%s", __FUNCTION__);
-    mInstance = NULL;
+
+    if(mCallbacks.get())
+        mCallbacks.clear();
 }
 
 status_t CallbacksThread::shutterSound()

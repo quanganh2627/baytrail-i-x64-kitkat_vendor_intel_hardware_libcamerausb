@@ -64,6 +64,7 @@ public:
     void setConfig(Config *config);
     status_t flushBuffers();
 
+    void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 // private types
 private:
 
@@ -124,7 +125,7 @@ private:
     JpegEncoder encoder; // for EXIF
     MessageQueue<Message, MessageId> mMessageQueue;
     bool mThreadRunning;
-    Callbacks *mCallbacks;
+    sp<Callbacks> mCallbacks;
     JpegCompressor compressor;
     JpegCompressor::InputBuffer mEncoderInBuf;
     JpegCompressor::OutputBuffer mEncoderOutBuf;

@@ -27,7 +27,7 @@ VideoThread::VideoThread() :
     Thread(true) // callbacks may call into java
     ,mMessageQueue("VideoThread", MESSAGE_ID_MAX)
     ,mThreadRunning(false)
-    ,mCallbacks(Callbacks::getInstance())
+    ,mCallbacks(NULL)
     ,mInputFormat(V4L2_PIX_FMT_NV21)
     ,mOutputFormat(V4L2_PIX_FMT_NV21)
     ,mWidth(640)  // VGA
@@ -42,6 +42,9 @@ VideoThread::~VideoThread()
     LOG1("@%s", __FUNCTION__);
     if(mVaConvertor !=NULL)
        delete mVaConvertor;
+
+    if(mCallbacks.get())
+        mCallbacks.clear();
 }
 
 status_t VideoThread::setConfig(int inputFormat, int outputFormat, int width, int height)
