@@ -29,6 +29,8 @@
 #include "CameraBufferAllocator.h"
 #include "VAConvertor.h"
 #include "DumpImage.h"
+#include <linux/uvcvideo.h>
+#include <linux/usb/video.h>
 
 
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
@@ -57,6 +59,126 @@ CameraDriver::CameraSensor *CameraDriver::mCameraSensor[MAX_CAMERAS];
 Mutex CameraDriver::mCameraSensorLock;
 int CameraDriver::numCameras = 0;
 
+/*
+ * The following extended control units are valid only for haswell
+ * GUID for Realtek Extended Controls Unit
+ * GUID for RTK is 26b8105a-0713-4870-979d-da79444bb
+ * We are copying it in a byte swaped manner inorder to
+ * take care of endianess swap while copying.
+ * typedef struct _tGUID {
+ * unsigned long   Data1;
+ * unsigned short  Data2;
+ * unsigned short  Data3;
+ * unsigned char   Data4[8];
+ * } tGUID;
+ *
+ */
+#define UVC_RTK_GUID_UVC_EXTENSION {0x5A, 0x10, 0xB8, 0x26, 0x13, 0x07, 0x70, 0x48, \
+                                    0x97, 0x9D, 0xDA, 0x79, 0x44, 0x4B, 0xB6, 0x8E}
+
+static struct uvc_menu_info special_effect_controls[] = {
+    { 1, "Normal Effect" },
+    { 2, "Monochrome Effect" },
+    { 4, "Gray Effect" },
+    { 8, "Negative Effect" },
+    { 16, "Sepia Effect" },
+    { 32, "Greenish Effect" },
+    { 64, "Reddish Effect" },
+    { 128, "Bluish Effect" },
+};
+
+static struct uvc_menu_info roi_auto_controls[] = {
+    { 1,   "Auto Exposure" },
+    { 2,   "Auto Iris" },
+    { 4,   "Auto While Balance" },
+    { 8,   "Auto Focus"},
+    { 16,  "Auto Face Detect"},
+    { 32,  "Auto Detect and Track"},
+    { 64,  "Image Stabilization"},
+    { 128, "Higher Quality"},
+};
+
+struct uvc_xu_control_mapping xu_controls[] = {
+    {
+        V4L2_CID_COLORFX,
+        "Color Effects",
+        UVC_RTK_GUID_UVC_EXTENSION,
+        UVC_XU_RTK_ISP_SPECIAL_EFFECT_CONTROL,
+        16,
+         0,
+        V4L2_CTRL_TYPE_MENU,
+        UVC_CTRL_DATA_TYPE_UNSIGNED,
+        (struct uvc_menu_info *)special_effect_controls,
+        sizeof(special_effect_controls)/sizeof(struct uvc_menu_info),
+        {0,0,0,0}    // reserved.
+    },
+    {
+        V4L2_CID_ROI_TOP,
+        "RTK ROI Top",
+        UVC_RTK_GUID_UVC_EXTENSION,
+        UVC_XU_RTK_ROI_CONTROL,
+        16,
+        0,
+        V4L2_CTRL_TYPE_INTEGER,
+        UVC_CTRL_DATA_TYPE_UNSIGNED,
+        NULL,
+        0,
+        {0,0,0,0}    // reserved.
+    },
+    {
+        V4L2_CID_ROI_LEFT,
+        "RTK ROI Left",
+        UVC_RTK_GUID_UVC_EXTENSION,
+        UVC_XU_RTK_ROI_CONTROL,
+        16,
+        16,
+        V4L2_CTRL_TYPE_INTEGER,
+        UVC_CTRL_DATA_TYPE_UNSIGNED,
+        NULL,
+        0,
+        {0,0,0,0}    // reserved.
+    },
+    {
+        V4L2_CID_ROI_BOTTOM,
+        "RTK ROI Bottom",
+        UVC_RTK_GUID_UVC_EXTENSION,
+        UVC_XU_RTK_ROI_CONTROL,
+        16,
+        32,
+        V4L2_CTRL_TYPE_INTEGER,
+        UVC_CTRL_DATA_TYPE_UNSIGNED,
+        NULL,
+        0,
+        {0,0,0,0}    // reserved.
+    },
+    {
+        V4L2_CID_ROI_RIGHT,
+        "RTK ROI Right",
+        UVC_RTK_GUID_UVC_EXTENSION,
+        UVC_XU_RTK_ROI_CONTROL,
+        16,
+        48,
+        V4L2_CTRL_TYPE_INTEGER,
+        UVC_CTRL_DATA_TYPE_UNSIGNED,
+        NULL,
+        0,
+        {0,0,0,0}    // reserved.
+    },
+    {
+        V4L2_CID_ROI_AUTO_CONTROL,
+        "RTK ROI Auto Control",
+        UVC_RTK_GUID_UVC_EXTENSION,
+        UVC_XU_RTK_ROI_CONTROL,
+        16,
+        64,
+        V4L2_CTRL_TYPE_MENU,
+        UVC_CTRL_DATA_TYPE_BITMASK,
+        (struct uvc_menu_info *)roi_auto_controls,
+        sizeof(roi_auto_controls)/sizeof(struct uvc_menu_info),
+        {0,0,0,0}    // reserved.
+    },
+};
+
 ////////////////////////////////////////////////////////////////////
 //                          PUBLIC METHODS
 ////////////////////////////////////////////////////////////////////
@@ -69,6 +191,7 @@ CameraDriver::CameraDriver(int cameraId) :
     ,mFormat(V4L2_PIX_FMT_YUYV)
     ,mBufAlloc(CameraMemoryAllocator::instance())
     ,mJpegDecoder(NULL)
+    ,isValidExposureWindow(false)
 {
     LOG1("@%s", __FUNCTION__);
 
@@ -81,10 +204,14 @@ CameraDriver::CameraDriver(int cameraId) :
     mBrightMax = 0;
     mBrightMin = 0;
 
+    mMapRoiFlag = false;
+    mMapColorFxFlag = false;
+
     mWBMode = WHITE_BALANCE_AUTO;
     mExpBias = 0;
 
     memset(&mBufferPool, 0, sizeof(mBufferPool));
+    memset(&mExposureWindow, 0 ,sizeof(mExposureWindow));
 
     int ret = openDevice();
     if (ret < 0) {
@@ -126,6 +253,7 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
 {
     LOG2("@%s", __FUNCTION__);
     int status = 0;
+    int fd = mCameraSensor[mCameraId]->fd;
     if (!params) {
         ALOGE("params is null!");
         return;
@@ -167,28 +295,33 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_MIN_EXPOSURE_COMPENSATION,"-3");
     params->set(CameraParameters::KEY_EXPOSURE_COMPENSATION_STEP,"1");
 
-    // effect modes
-    if (mSupportedControls.hue) {
-        params->set(CameraParameters::KEY_EFFECT, CameraParameters::EFFECT_NONE);
+    // default color effect modes
+    params->set(CameraParameters::KEY_EFFECT, CameraParameters::EFFECT_NONE);
+    params->set(CameraParameters::KEY_SUPPORTED_EFFECTS, CameraParameters::EFFECT_NONE);
+
+    // If color effect supported/
+    if (mSupportedControls.colorfx) {
+        char effectModes[] = "none,mono,sepia,negative,blackboard,whiteboard";
+        params->set(CameraParameters::KEY_SUPPORTED_EFFECTS, effectModes);
+    }
+    else if (mSupportedControls.hue) {
         char effectModes[200] = {0};
         int status = snprintf(effectModes, sizeof(effectModes)
-                              ,"%s,%s,%s"
-                              ,CameraParameters::EFFECT_NONE
-                              ,CameraParameters::EFFECT_MONO
-                              ,CameraParameters::EFFECT_SEPIA);
-
+            ,"%s,%s,%s"
+            ,CameraParameters::EFFECT_NONE
+            ,CameraParameters::EFFECT_MONO
+            ,CameraParameters::EFFECT_SEPIA);
         if (status < 0) {
             ALOGE("Could not generate %s string: %s",
                   CameraParameters::KEY_SUPPORTED_EFFECTS, strerror(errno));
             return;
-        } else if (static_cast<unsigned>(status) >= sizeof(effectModes)) {
+        }
+        else if (static_cast<unsigned>(status) >= sizeof(effectModes)) {
             ALOGE("Truncated %s string. Reserved length: %d",
-                  CameraParameters::KEY_SUPPORTED_EFFECTS, sizeof(effectModes));
+            CameraParameters::KEY_SUPPORTED_EFFECTS, sizeof(effectModes));
             return;
         }
         params->set(CameraParameters::KEY_SUPPORTED_EFFECTS, effectModes);
-    } else {
-        params->set(CameraParameters::KEY_SUPPORTED_EFFECTS, CameraParameters::EFFECT_NONE);
     }
 
     // white-balance mode
@@ -218,7 +351,6 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
 
     if (mCameraSensor[mCameraId]->info.facing == CAMERA_FACING_FRONT) {
         LOG1("Get Default Parameters for Front Camera ");
-
        // Front Camera is Fixed focus
        params->set(CameraParameters::KEY_FOCUS_MODE, CameraParameters::FOCUS_MODE_FIXED);
        params->set(CameraParameters::KEY_SUPPORTED_FOCUS_MODES, CameraParameters::FOCUS_MODE_FIXED);
@@ -226,7 +358,6 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
        params->setFloat(CameraParameters::KEY_FOCAL_LENGTH, 10.0);
     }  else {
         LOG1("Get Default Parameters for Rear Camera ");
-
         params->set(CameraParameters::KEY_FOCUS_MODE, CameraParameters::FOCUS_MODE_AUTO);
         params->set(CameraParameters::KEY_SUPPORTED_FOCUS_MODES, CameraParameters::FOCUS_MODE_AUTO);
         params->set(CameraParameters::KEY_MAX_NUM_FOCUS_AREAS, 1);
@@ -851,7 +982,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
             return status;
         }
         delete jpginfo;
-        LOG1("jpegdecoder over");
+        LOG2("jpegdecoder over");
         /*
         //the following code is used for dump image after jpegdec with mapfunction in libjpegdec
         uint8_t *data;
@@ -915,7 +1046,46 @@ status_t CameraDriver::querySupportedControls()
     mSupportedControls.contrast                    = !(v4l2_capture_queryctrl(fd, V4L2_CID_CONTRAST));
     mSupportedControls.brightness                  = !(v4l2_capture_queryctrl(fd, V4L2_CID_BRIGHTNESS));
     mSupportedControls.hue                         = !(v4l2_capture_queryctrl(fd, V4L2_CID_HUE));
+    mSupportedControls.colorfx                     = !(v4l2_capture_queryctrl(fd, V4L2_CID_COLORFX));
+
+    mSupportedControls.roi                         = (!(v4l2_capture_queryctrl(fd, V4L2_CID_ROI_TOP))
+                                                      && !v4l2_capture_queryctrl(fd, V4L2_CID_ROI_LEFT)
+                                                      && !v4l2_capture_queryctrl(fd, V4L2_CID_ROI_BOTTOM)
+                                                      && !v4l2_capture_queryctrl(fd, V4L2_CID_ROI_RIGHT)
+                                                      && !v4l2_capture_queryctrl(fd, V4L2_CID_ROI_AUTO_CONTROL));
     return status;
+}
+
+void CameraDriver::mapUvcExtendedControl(enum ExtendedFeature extFeature)
+{
+    LOG1("@%s", __FUNCTION__);
+    int i;
+    struct v4l2_queryctrl queryctrl;
+    int ret = 0;
+
+    if (extFeature == EXT_FEATURE_ROI) {
+        int count = sizeof(xu_controls)/sizeof(struct uvc_xu_control_mapping);
+        int fd = mCameraSensor[mCameraId]->fd;
+        for(i = 1; i < count; i++) {
+                if(ioctl(fd, UVCIOC_CTRL_MAP, &xu_controls[i]) != 0) {
+                    if(errno != EEXIST) {
+                        ALOGD("[WARNING] (%s) not supported by device", xu_controls[i].name);
+                        return;
+                    }
+                }
+            }
+            mMapRoiFlag = true;
+        }
+    else if (extFeature == EXT_FEATURE_COLORFX) {
+        int fd = mCameraSensor[mCameraId]->fd;
+        if(ioctl(fd, UVCIOC_CTRL_MAP, &xu_controls[0]) != 0) {
+            if(errno != EEXIST) {
+                ALOGD("[WARNING] (%s) not supported by device", xu_controls[0].name);
+                return;
+            }
+        }
+        mMapColorFxFlag = true;
+    }
 }
 
 void CameraDriver::detectDeviceResolutions()
@@ -1698,6 +1868,51 @@ void CameraDriver::cleanupCameras(){
     numCameras = 0;
 }
 
+int CameraDriver::setROIControl(int top, int left, int bottom, int right, enum v4l2_roi_control auto_control)
+{
+    LOG1("@%s", __FUNCTION__);
+    struct v4l2_control control;
+    struct v4l2_ext_controls controls;
+    struct v4l2_ext_control ext_control[5];
+    int fd = mCameraSensor[mCameraId]->fd;
+    int ret = 0;
+
+    if (fd < 0)
+        return -1;
+
+    /*
+     * The UVC specification allows for vendor-specific extensions through extension units (XUs)
+     * The UVC driver provides an API for user space applications to define so-called control
+     * mappings at runtime. These allow for individual XU controls to be mapped to V4L2 controls
+     * The UVCIOC_CTRL_MAP ioctl is used to create these control mappings.
+     * If the Extended Control is not supportted , mapping would not be done.
+     */
+    if (!mMapRoiFlag)
+        mapUvcExtendedControl(EXT_FEATURE_ROI);
+
+    controls.ctrl_class = V4L2_CTRL_CLASS_CAMERA;
+    controls.count = 5;
+    controls.controls = (struct v4l2_ext_control*)ext_control;
+    ext_control[0].id = V4L2_CID_ROI_TOP;
+    ext_control[0].value = top;
+    ext_control[1].id = V4L2_CID_ROI_LEFT;
+    ext_control[1].value = left;
+    ext_control[2].id = V4L2_CID_ROI_BOTTOM;
+    ext_control[2].value = bottom;
+    ext_control[3].id = V4L2_CID_ROI_RIGHT;
+    ext_control[3].value = right;
+
+    ext_control[4].id = V4L2_CID_ROI_AUTO_CONTROL;
+    ext_control[4].value = V4L2_ROI_CTRL_EXPOSURE;
+
+    if ((ret = ioctl(fd, VIDIOC_S_EXT_CTRLS, &controls)) == 0)
+        return 0;
+
+    ALOGE("Failed to set value Exposure ROI(%s:%d)", strerror(errno), errno);
+
+    return UNKNOWN_ERROR;
+}
+
 status_t CameraDriver::autoFocus()
 {
     LOG1("@%s Feature Implemented", __FUNCTION__);
@@ -1714,6 +1929,7 @@ status_t CameraDriver::autoFocus()
         return UNKNOWN_ERROR;
     }
     LOG1("Auto Focus ..............Done");
+
     return NO_ERROR;
 }
 
@@ -1742,51 +1958,96 @@ status_t CameraDriver::setEffect(Effect effect)
     int ret = NO_ERROR;
     int hueVal = 0;
     int saturationVal = 0;
+    int colorfxVal = 0;
     int fd = mCameraSensor[mCameraId]->fd;
 
-    if ((!mSupportedControls.hue)||(!mSupportedControls.saturation)){
+    if (!mMapColorFxFlag)
+        mapUvcExtendedControl(EXT_FEATURE_COLORFX);
+
+    bool supportcolorfx = !(v4l2_capture_queryctrl(fd, V4L2_CID_COLORFX));
+
+    if (((!mSupportedControls.hue)||(!mSupportedControls.saturation))&& !supportcolorfx){
         if(effect != EFFECT_NONE) {
             ALOGE("invalid color effect");
             return BAD_VALUE;
         } else {
+            ALOGE("Colorfx not supported");
             return NO_ERROR;
         }
-    } else {
+    } else if(supportcolorfx) {
         switch (effect) {
-        case EFFECT_NONE:
-        {
-            hueVal = 0;
-            saturationVal = 128;
-            break;
+            case EFFECT_NONE:
+            {
+                colorfxVal = 0; //none
+                break;
+            }
+            case EFFECT_MONO:
+            {
+                colorfxVal = 1; //mono
+                break;
+            }
+            case EFFECT_SEPIA:
+            {
+                colorfxVal = 4; //sepia
+                break;
+            }
+            case EFFECT_NEGATIVE:
+            {
+                colorfxVal = 3; //negative
+                break;
+            }
+            case EFFECT_BLACKBOARD:
+            case EFFECT_WHITEBOARD:
+            {
+                colorfxVal = 2; //grayscale
+                break;
+            }
+            default:
+            {
+                ALOGE("invalid color effect");
+                ret = BAD_VALUE;
+                break;
+            }
         }
-        case EFFECT_MONO:
-        {
-            hueVal = 0;
-            saturationVal = 0;
-            break;
-        }
-        case EFFECT_SEPIA:
-        {
-            hueVal = 1200;
-            saturationVal = 16;
-            break;
-        }
-        default:
-        {
-            ALOGE("invalid color effect");
-            ret = BAD_VALUE;
-            break;
-        }
-        }
-        if(set_attribute(fd, V4L2_CID_HUE, hueVal ,"Hue" )!=0) {
-            ALOGE("Error in writing Hue value");
+        if(set_attribute(fd, V4L2_CID_COLORFX, colorfxVal ,"Colorfx" )!=0) {
+            ALOGE("Error in writing Colorfx value");
             ret = -1;
         }
-        if(set_attribute(fd, V4L2_CID_SATURATION, saturationVal ,"Saturation" )!=0) {
-            ALOGE("Error in writing Saturation value");
-            ret = -1;
-        }
-
+    }else {
+        switch (effect) {
+            case EFFECT_NONE:
+            {
+                hueVal = 0;
+                saturationVal = 128;
+                break;
+            }
+            case EFFECT_MONO:
+            {
+                hueVal = 0;
+                saturationVal = 0;
+                break;
+            }
+            case EFFECT_SEPIA:
+            {
+                hueVal = 1200;
+                saturationVal = 16;
+                break;
+            }
+            default:
+            {
+                ALOGE("invalid color effect");
+                ret = BAD_VALUE;
+                break;
+            }
+            }
+            if(set_attribute(fd, V4L2_CID_HUE, hueVal ,"Hue" )!=0) {
+                ALOGE("Error in writing Hue value");
+                ret = -1;
+            }
+            if(set_attribute(fd, V4L2_CID_SATURATION, saturationVal ,"Saturation" )!=0) {
+                ALOGE("Error in writing Saturation value");
+                ret = -1;
+            }
     }
     return ret;
 }
@@ -1826,7 +2087,6 @@ status_t CameraDriver::setFocusMode(FocusMode focusMode, CameraWindow *windows, 
         ALOGE("focus windows not supported");
         return INVALID_OPERATION;
     }
-
     // Do nothing. FOCUS_MODE_FIXED is all we support.
 
     return NO_ERROR;

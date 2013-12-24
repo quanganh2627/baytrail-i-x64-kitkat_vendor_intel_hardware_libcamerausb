@@ -99,6 +99,11 @@ public:
         FOCUS_MODE_CONTINUOUS_PICTURE,
     };
 
+    enum ExtendedFeature {
+        EXT_FEATURE_COLORFX,
+        EXT_FEATURE_ROI,
+    };
+
     enum WhiteBalanceMode {
         WHITE_BALANCE_AUTO,
         WHITE_BALANCE_INCANDESCENT,
@@ -261,6 +266,8 @@ private:
         bool contrast;
         bool brightness;
         bool hue;
+        bool colorfx;
+        bool roi;
     };
 
 // private methods
@@ -298,6 +305,9 @@ private:
     status_t v4l2_capture_querycap(int fd, struct v4l2_capability *cap);
     status_t v4l2_capture_queryctrl(int fd, int attribute_num);
     status_t querySupportedControls();
+    void mapUvcExtendedControl(enum ExtendedFeature extFeature);
+    status_t mapRTKExtSpecialEffect();
+    status_t mapRTKExtROIControl();
     status_t getZoomMaxMinValues();
     status_t getBrightnessMaxMinValues();
     void detectDeviceResolutions();
@@ -309,12 +319,15 @@ private:
                                const int value, const char *name);
     int set_zoom (int fd, int zoom);
     status_t setFrameInfo(FrameInfo *fi, int width, int height);
+    int setROIControl(int top, int left, int bottom, int right, enum v4l2_roi_control auto_control);
 
     // private members
 private:
 
     static int numCameras;
     static Mutex mCameraSensorLock;                             // lock to access mCameraSensor
+    bool mMapRoiFlag;
+    bool mMapColorFxFlag;
     static struct CameraSensor *mCameraSensor[MAX_CAMERAS];     // all camera sensors in CameraDriver Class.
 
     Mode mMode;
@@ -349,6 +362,9 @@ private:
 
     JpegDecoder *mJpegDecoder;
     std::set<String8> mJpegModes;
+
+    bool isValidExposureWindow;
+    CameraWindow mExposureWindow;
 
     WhiteBalanceMode mWBMode;
     int mExpBias;
