@@ -372,7 +372,6 @@ private:
     IFaceDetector* m_pFaceDetector;
     bool mFaceDetectionActive;
     bool mAutoFocusActive;
-    bool mThumbSupported;
 
     CameraBuffer* mLastRecordingBuff;
     int mCameraFormat;

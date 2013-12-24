@@ -50,7 +50,6 @@ ControlThread::ControlThread(int cameraId) :
     ,mNumBuffers(1)
     ,m_pFaceDetector(0)
     ,mFaceDetectionActive(false)
-    ,mThumbSupported(false)
     ,mLastRecordingBuff(0)
     ,mCameraFormat(mDriver->getFormat())
     ,mStoreMetaDataInVideoBuffers(true)
@@ -304,18 +303,10 @@ bool ControlThread::isParameterSet(const char* param)
 
 bool ControlThread::isThumbSupported(State state)
 {
-    bool supported = false;
-
     // thumbnail is supported if width and height are non-zero
-    // and shot is snapped in still picture mode. thumbnail is
-    // not supported for video snapshot.
-    if (state == STATE_PREVIEW_STILL || state == STATE_CAPTURE || state == STATE_PREVIEW_VIDEO || state == STATE_RECORDING) {
-        int width = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
-        int height = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
-        supported = (width != 0) && (height != 0);
-    }
-
-    return supported;
+    int width = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
+    int height = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
+    return (width != 0) && (height != 0);
 }
 
 status_t ControlThread::gatherExifInfo(const CameraParameters *params, bool flash, exif_attribute_t *exif)
@@ -1181,28 +1172,20 @@ status_t ControlThread::handleMessageTakePicture()
 
     // Get the current params
     mParameters.getPictureSize(&width, &height);
-    if (origState == STATE_RECORDING) {
-        // override picture size to video size if recording
-        int vidWidth, vidHeight;
-        mDriver->getVideoSize(&vidWidth, &vidHeight);
-        if (width != vidWidth || height != vidHeight) {
-            ALOGW("Warning overriding snapshot size=%d,%d to %d,%d",
-                    width, height, vidWidth, vidHeight);
-            width = vidWidth;
-            height = vidHeight;
-        }
-    }
 
     // see if we support thumbnail
-    mThumbSupported = isThumbSupported(origState);
+    bool doThumb = isThumbSupported(origState);
     // Configure PictureThread
     PictureThread::Config config;
 
     if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
         gatherExifInfo(&mParameters, false, &config.exif);
-    } else if (origState == STATE_RECORDING) { // STATE_RECORDING
-        // Picture thread uses snapshot-size to configure itself. However,
-        // if in recording mode we need to override snapshot with video-size.
+    } else if (origState == STATE_RECORDING) {
+        // Snapshots in record mode must be taken at the video size;
+        // the driver cannot be reconfigured to a different resolution
+        // without dropping frames.
+        mDriver->getVideoSize(&width, &height);
+
         CameraParameters copyParams = mParameters;
         copyParams.setPictureSize(width, height); // make sure picture size is same as video size
         gatherExifInfo(&copyParams, false, &config.exif);
@@ -1213,7 +1196,7 @@ status_t ControlThread::handleMessageTakePicture()
     config.picture.width = width;
     config.picture.height = height;
 
-    if (mThumbSupported) {
+    if (doThumb) {
         config.thumbnail.format = mJpegEncoderFormat;
         config.thumbnail.quality = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_QUALITY);
         config.thumbnail.width = mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
@@ -1247,7 +1230,7 @@ status_t ControlThread::handleMessageTakePicture()
         snapshotBuffer->setOwner(this);
         snapshotBuffer->mType = BUFFER_TYPE_SNAPSHOT;
         returnBuffer(snapshotBuffer);
-        if (mThumbSupported) {
+        if (doThumb) {
             int ret=0;
             postviewBuffer = new CameraBuffer;
             ret = mGraphicBufAlloc->allocate(postviewBuffer,config.thumbnail.width,config.thumbnail.height,mJpegEncoderFormat);
@@ -1271,46 +1254,41 @@ status_t ControlThread::handleMessageTakePicture()
         interBuff->setOwner(this);
         interBuff->mType = BUFFER_TYPE_CAP;
 
-        if (mThumbSupported && postviewBuffer != NULL) {
+        if (doThumb && postviewBuffer != NULL) {
             status = mPictureThread->encode(yuvBuffer,interBuff, postviewBuffer);
         } else {
             status = mPictureThread->encode(yuvBuffer,interBuff);
         }
-    } else {
+    } else if (mLastRecordingBuff !=0) {
         // If we are in video mode we simply use the recording buffer for picture encoding
         // No need to stop, reconfigure, and restart the driver
-        if (mLastRecordingBuff !=0)
+        if (doThumb)
         {
-            if (mThumbSupported)
-            {
-                 int ret=0;
-                 postviewBuffer = new CameraBuffer;
-                 ret = mGraphicBufAlloc->allocate(postviewBuffer,config.thumbnail.width,config.thumbnail.height,mJpegEncoderFormat);
-                 if(ret != NO_ERROR)
-                 {
-                      LOGE("allocate graphic buffer failed");
-                      return -1;
-                 }
-                 postviewBuffer->setOwner(this);
-                 postviewBuffer->mType = BUFFER_TYPE_CAP;
-           }
-            CameraBuffer *interBuff = new CameraBuffer;
-            status  = mGraphicBufAlloc->allocate(interBuff,width,height,mJpegEncoderFormat);
-            if(status != NO_ERROR)
-            {
-                ALOGE("allocate graphic buffer failed");
-                return -1;
-            }
-            interBuff->setOwner(this);
-            interBuff->mType = BUFFER_TYPE_CAP;
-            if (mThumbSupported && postviewBuffer != NULL) {
-                status = mPictureThread->encode(mLastRecordingBuff, interBuff,postviewBuffer);
-            }
-            else
-            {
-                status = mPictureThread->encode(mLastRecordingBuff,interBuff);
-            }
+             int ret=0;
+             postviewBuffer = new CameraBuffer;
+             ret = mGraphicBufAlloc->allocate(postviewBuffer,config.thumbnail.width,config.thumbnail.height,mJpegEncoderFormat);
+             if(ret != NO_ERROR)
+             {
+                  LOGE("allocate graphic buffer failed");
+                  return -1;
+             }
+             postviewBuffer->setOwner(this);
+             postviewBuffer->mType = BUFFER_TYPE_CAP;
+             mCallbacksThread->shutterSound();
         }
+        CameraBuffer *interBuff = new CameraBuffer;
+        status  = mGraphicBufAlloc->allocate(interBuff,width,height,mJpegEncoderFormat);
+        if(status != NO_ERROR)
+        {
+            ALOGE("allocate graphic buffer failed");
+            return -1;
+        }
+        interBuff->setOwner(this);
+        interBuff->mType = BUFFER_TYPE_CAP;
+        if (doThumb && postviewBuffer != NULL)
+            status = mPictureThread->encode(mLastRecordingBuff, interBuff,postviewBuffer);
+        else
+            status = mPictureThread->encode(mLastRecordingBuff,interBuff);
     }
 
     return status;

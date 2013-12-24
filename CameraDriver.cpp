@@ -275,7 +275,7 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_PREVIEW_FORMAT, "yuv420sp");
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FORMATS, "yuv420p,yuv420sp");
 
-    params->set(CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED, CameraParameters::FALSE);
+    params->set(CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED, CameraParameters::TRUE);
 
     params->set(CameraParameters::KEY_SUPPORTED_PICTURE_FORMATS,CameraParameters::PIXEL_FORMAT_JPEG);
     // workaround to fix CTS issue, the thumbnail resolution will be moved to back 320x240 when root cause has been found
@@ -1278,7 +1278,7 @@ status_t CameraDriver::setVideoFrameSize(int width, int height)
     }
     mConfig.recording.width = width;
     mConfig.recording.height= height;
-    return setFrameInfo(&mConfig.snapshot, width, height);
+    return setFrameInfo(&mConfig.recording, width, height);
 }
 
 void CameraDriver::computeZoomRatios(char *zoom_ratio, int max_count){
