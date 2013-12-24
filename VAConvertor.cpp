@@ -213,7 +213,7 @@ int VAConvertor::addInputBuffer(buffer_handle_t pBufHandle, int width, int heigh
     RenderTarget *rt;
     struct mfx_gralloc_drm_handle_t *pGrallocHandle;
 
-    LOG1("@%s %dx%d format:%x current count:%d", __FUNCTION__, width, height, format, mIIDKey);
+    LOG2("@%s %dx%d format:%x current count:%d", __FUNCTION__, width, height, format, mIIDKey);
 
     rt = new RenderTarget();
     if (rt == NULL) {
@@ -241,7 +241,7 @@ int VAConvertor::addOutputBuffer(buffer_handle_t pBufHandle, int width, int heig
     RenderTarget *rt;
     struct mfx_gralloc_drm_handle_t *pGrallocHandle;
 
-    LOG1("@%s %dx%d format:%x current count:%d", __FUNCTION__, width, height,format, mOIDKey);
+    LOG2("@%s %dx%d format:%x current count:%d", __FUNCTION__, width, height,format, mOIDKey);
 
     rt = new RenderTarget();
     if (rt == NULL) {

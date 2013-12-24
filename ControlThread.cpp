@@ -583,7 +583,7 @@ status_t ControlThread::returnThumbnailBuffer(CameraBuffer *buff)
 status_t ControlThread::returnConversionBuffer(CameraBuffer *buff)
 {
     status_t status = NO_ERROR;
-    LOG1("@%s",__FUNCTION__);
+    LOG2("@%s",__FUNCTION__);
     if (mConversionBuffers == 0)
         return status;
 
@@ -599,7 +599,7 @@ status_t ControlThread::returnJpegdecBuffer(CameraBuffer *buff)
 {
     status_t status = NO_ERROR;
 
-    LOG1("@%s",__FUNCTION__);
+    LOG2("@%s",__FUNCTION__);
     if (mJpegdecBufferPool == 0)
         return status;
     for (int i = 0; i < mNumJpegdecBuffers; i++) {
@@ -2510,7 +2510,7 @@ CameraBuffer* ControlThread::findGraBuffer(void *findMe)
 
 status_t ControlThread::dequeuePreview()
 {
-    LOG1("@%s", __FUNCTION__);
+    LOG2("@%s", __FUNCTION__);
     CameraBuffer* driverbuff = NULL;
     CameraBuffer* yuvbuff = NULL;
     status_t status = NO_ERROR;
@@ -2561,7 +2561,7 @@ status_t ControlThread::dequeuePreview()
 
 status_t ControlThread::dequeueRecording()
 {
-    LOG1("@%s,mState is:%d", __FUNCTION__, mState);
+    LOG2("@%s,mState is:%d", __FUNCTION__, mState);
     CameraBuffer* driverbuff;
     CameraBuffer* yuvbuff;
     nsecs_t timestamp;

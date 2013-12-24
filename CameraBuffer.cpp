@@ -130,7 +130,7 @@ void CameraBuffer::setOwner(IBufferOwner* o)
     if (mOwner == 0)
         mOwner = o;
     else {
-        ALOGE("taking ownership from previous owner is not allowed.");
+        ALOGV("taking ownership from previous owner is not allowed.");
     }
 }
 
