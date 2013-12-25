@@ -709,7 +709,7 @@ status_t ControlThread::allocateGraMetaDataBuffers()
         camBuf = &mVPPOutBufferPool[i];
         metaDataBuf = new IntelMetadataBuffer();
         if(metaDataBuf) {
-            metaDataBuf->SetType(MetadataBufferTypeGrallocSource);
+            metaDataBuf->SetType(IntelMetadataBufferTypeGrallocSource);
             metaDataBuf->SetValue((uint32_t)camBuf->mGrhandle);
             metaDataBuf->Serialize(meta_data_prt, meta_data_size);
             camBuf->metadata_buff = NULL;
