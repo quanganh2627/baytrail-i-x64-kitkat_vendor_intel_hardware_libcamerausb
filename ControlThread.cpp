@@ -45,8 +45,8 @@ ControlThread::ControlThread(int cameraId) :
     ,mMessageQueue("ControlThread", (int) MESSAGE_ID_MAX)
     ,mState(STATE_STOPPED)
     ,mThreadRunning(false)
-    ,mCallbacks(Callbacks::getInstance())
-    ,mCallbacksThread(CallbacksThread::getInstance())
+    ,mCallbacks(new Callbacks())
+    ,mCallbacksThread(new CallbacksThread())
     ,mNumBuffers(1)
     ,m_pFaceDetector(0)
     ,mFaceDetectionActive(false)
@@ -73,6 +73,12 @@ ControlThread::ControlThread(int cameraId) :
 
     initDefaultParams();
 
+    mDriver->setCallbacks(mCallbacks);
+    mPreviewThread->setCallbacks(mCallbacks);
+    mPictureThread->setCallbacks(mCallbacks);
+    mVideoThread->setCallbacks(mCallbacks);
+    mCallbacksThread->setCallbacks(mCallbacks);
+
     mPipeThread->setThreads(mPreviewThread, mVideoThread);
 
     status_t status = mPreviewThread->run();
@@ -95,7 +101,7 @@ ControlThread::ControlThread(int cameraId) :
     if (status != NO_ERROR) {
         LOGW("Error starting callbacks thread!");
     }
-    m_pFaceDetector=FaceDetectorFactory::createDetector(mCallbacks);
+    m_pFaceDetector=FaceDetectorFactory::createDetector(mCallbacks.get());
     if (m_pFaceDetector != 0){
         mParameters.set(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW,
                 m_pFaceDetector->getMaxFacesDetectable());
@@ -126,9 +132,6 @@ ControlThread::~ControlThread()
     if (mDriver != NULL) {
         delete mDriver;
     }
-    if (mCallbacks != NULL) {
-        delete mCallbacks;
-    }
     if (m_pFaceDetector != 0) {
         if (!FaceDetectorFactory::destroyDetector(m_pFaceDetector)){
             ALOGE("Failed on destroy face detector thru factory");
@@ -136,6 +139,8 @@ ControlThread::~ControlThread()
         }
         m_pFaceDetector = 0;
     }
+    if (mCallbacks.get())
+        mCallbacks.clear();
     delete mGraphicBufAlloc;
 }
 
@@ -844,7 +849,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     ICameraBufferAllocator *alloc = CameraMemoryAllocator::instance();
     for (int i = 0; i < mNumBuffers; i++) {
         alloc->allocateMemory(&mConversionBuffers[i],
-                bytes, previewWidth, previewHeight, previewFormat);
+                bytes, mCallbacks.get(), previewWidth, previewHeight, previewFormat);
         if(mConversionBuffers == NULL)
         {
             ALOGE("allocateMemory failed!");

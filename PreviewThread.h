@@ -48,6 +48,7 @@ public:
     status_t setPreviewWindow(struct preview_stream_ops *window);
     status_t setPreviewConfig(int preview_width, int preview_height, int input_format, int output_format);
     status_t flushBuffers();
+    void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 
     // TODO: need methods to configure preview thread
     // TODO: decide if configuration method should send a message
@@ -130,7 +131,7 @@ private:
     MessageQueue<Message, MessageId> mMessageQueue;
     bool mThreadRunning;
     sp<DebugFrameRate> mDebugFPS;
-    Callbacks *mCallbacks;
+    sp<Callbacks> mCallbacks;
 
     preview_stream_ops_t* mPreviewWindow;
 

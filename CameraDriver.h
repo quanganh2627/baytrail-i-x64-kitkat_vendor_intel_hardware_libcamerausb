@@ -187,7 +187,7 @@ public:
     status_t setAeLock(bool lock);
     status_t setAwbLock(bool lock);
     status_t setMeteringAreas(CameraWindow *windows, int numWindows);
-
+    void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 
 // private types
 private:
@@ -318,7 +318,7 @@ private:
     static struct CameraSensor *mCameraSensor[MAX_CAMERAS];     // all camera sensors in CameraDriver Class.
 
     Mode mMode;
-    Callbacks *mCallbacks;
+    sp<Callbacks> mCallbacks;
 
     Config mConfig;
 

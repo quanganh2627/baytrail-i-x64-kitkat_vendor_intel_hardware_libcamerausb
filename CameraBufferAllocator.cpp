@@ -54,9 +54,9 @@ void* CameraMemoryAllocator::map(CameraBuffer* buf)
 }
 
 int CameraMemoryAllocator::allocateMemory(CameraBuffer* buf, unsigned int size,
-        int w, int h, int format)
+        Callbacks* callbacks, int w, int h, int format)
 {
-    buf->mCamMem = Callbacks::getInstance()->allocateMemory(size);
+    buf->mCamMem = callbacks->allocateMemory(size);
     if (buf->mCamMem == 0 || buf->mCamMem->data == 0) {
         return -1;
     }
@@ -163,7 +163,7 @@ void GEMFlinkAllocator::unmap(CameraBuffer* buf)
 }
 
 int GEMFlinkAllocator::allocateMemory(CameraBuffer* buf, unsigned int size,
-        int w, int h, int format)
+        Callbacks* callbacks, int w, int h, int format)
 {
 
     drm_intel_bo* bo = drm_intel_bo_alloc(mDRMBufMgr, "CameraHAL",
@@ -172,7 +172,7 @@ int GEMFlinkAllocator::allocateMemory(CameraBuffer* buf, unsigned int size,
     if(bo == NULL)
          return -1;
 
-    buf->mCamMem = Callbacks::getInstance()->allocateMemory(IntelMetadataBuffer::GetMaxBufferSize());
+    buf->mCamMem = callbacks->allocateMemory(IntelMetadataBuffer::GetMaxBufferSize());
     if(buf->mCamMem == 0 || buf->mCamMem->data == 0){
         drm_intel_bo_unreference(bo);
         return -1;

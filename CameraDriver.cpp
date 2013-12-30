@@ -63,7 +63,7 @@ int CameraDriver::numCameras = 0;
 
 CameraDriver::CameraDriver(int cameraId) :
     mMode(MODE_NONE)
-    ,mCallbacks(Callbacks::getInstance())
+    ,mCallbacks(NULL)
     ,mSessionId(0)
     ,mCameraId(cameraId)
     ,mFormat(V4L2_PIX_FMT_YUYV)
@@ -118,6 +118,8 @@ CameraDriver::~CameraDriver()
     if (mMode != MODE_NONE) {
         stop();
     }
+    if (mCallbacks.get())
+        mCallbacks.clear();
 }
 
 void CameraDriver::getDefaultParameters(CameraParameters *params)
@@ -678,7 +680,7 @@ status_t CameraDriver::allocateBuffer(int fd, int index, int w, int h, int forma
     }
 
     // allocate memory
-    mBufAlloc->allocateMemory(camBuf, vbuf->length, w, h, format);
+    mBufAlloc->allocateMemory(camBuf, vbuf->length, mCallbacks.get(), w, h, format);
     camBuf->mID = index;
     vbuf->m.userptr = (unsigned int) camBuf->getData();
     LOG1("alloc mem addr=%p, index=%d size=%d", camBuf->getData(), index, vbuf->length);

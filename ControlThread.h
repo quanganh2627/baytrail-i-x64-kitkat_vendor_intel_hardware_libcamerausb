@@ -361,7 +361,7 @@ private:
     MessageQueue<Message, MessageId> mMessageQueue;
     State mState;
     bool mThreadRunning;
-    Callbacks *mCallbacks;
+    sp<Callbacks> mCallbacks;
     sp<CallbacksThread> mCallbacksThread;
 
     CameraBuffer *mConversionBuffers;
