@@ -21,6 +21,8 @@ extern "C"
 {
 #include <intel_bufmgr.h>
 }
+#include "Callbacks.h"
+
 namespace android {
 
 class CameraBuffer;
@@ -56,7 +58,7 @@ public:
      * @return size of allocated, -1 for any error
      */
     virtual int allocateMemory(CameraBuffer* buf,
-            unsigned int size, int w = 0, int h =0, int format = 0) = 0;
+            unsigned int size, Callbacks* callbacks, int w = 0, int h =0, int format = 0) = 0;
 
 
 protected:
@@ -101,7 +103,7 @@ public:
     static ICameraBufferAllocator* instance();
 
     virtual int allocateMemory(CameraBuffer* buf,
-            unsigned int size, int w = 0, int h =0, int format = 0);
+            unsigned int size, Callbacks* callbacks, int w = 0, int h =0, int format = 0);
     virtual ~CameraMemoryAllocator();
 
 private:
@@ -120,7 +122,7 @@ public:
     static ICameraBufferAllocator* instance();
 
     virtual int allocateMemory(CameraBuffer* buf,
-            unsigned int size, int w = 0, int h =0, int format = 0);
+            unsigned int size, Callbacks* callbacks, int w = 0, int h =0, int format = 0);
 
     virtual ~GEMFlinkAllocator();
 

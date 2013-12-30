@@ -48,7 +48,7 @@ public:
     // If no color conversion is required simply supply the input buffer
     status_t video(CameraBuffer *buff, CameraBuffer *interbuff, nsecs_t timestamp);
     status_t flushBuffers();
-
+    void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 // private types
 private:
 
@@ -106,7 +106,7 @@ private:
 
     MessageQueue<Message, MessageId> mMessageQueue;
     bool mThreadRunning;
-    Callbacks *mCallbacks;
+    sp<Callbacks> mCallbacks;
 
     int mInputFormat;
     int mOutputFormat;

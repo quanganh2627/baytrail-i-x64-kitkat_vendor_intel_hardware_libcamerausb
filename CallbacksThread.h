@@ -29,17 +29,8 @@ class Callbacks;
 class CallbacksThread :
     public Thread {
 
-private:
-    static CallbacksThread* mInstance;
-    CallbacksThread();
-// constructor destructor
 public:
-    static CallbacksThread* getInstance() {
-        if (mInstance == NULL) {
-            mInstance = new CallbacksThread();
-        }
-        return mInstance;
-    }
+    CallbacksThread();
     virtual ~CallbacksThread();
 
 // prevent copy constructor and assignment operator
@@ -55,6 +46,7 @@ public:
 public:
 
     status_t shutterSound();
+    void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 // private types
 private:
 
@@ -167,7 +159,7 @@ private:
 
     MessageQueue<Message, MessageId> mMessageQueue;
     bool mThreadRunning;
-    Callbacks *mCallbacks;
+    sp<Callbacks> mCallbacks;
 // public data
 public:
 
