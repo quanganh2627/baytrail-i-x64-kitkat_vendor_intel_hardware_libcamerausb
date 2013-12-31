@@ -58,13 +58,14 @@ int CameraBuffer::getDataSize()
     return mSize;
 }
 
-void CameraBuffer::LockGrallocData(void** addr,int* size)
+int CameraBuffer::LockGrallocData(void** addr,int* size)
 {
     int res =0;
     res =  mGralloc_module->lock(mGralloc_module, mGrhandle,
                 GRALLOC_USAGE_SW_READ_MASK,
                 0, 0, mWidth, mHeight, addr);
     *size = mGraBuffSize;
+    return res;
 }
 void CameraBuffer::UnLockGrallocData()
 {

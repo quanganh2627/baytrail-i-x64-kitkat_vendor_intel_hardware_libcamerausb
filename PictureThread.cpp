@@ -303,9 +303,15 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
          }
          alignThumbnailHeight = ALIGN(mConfig.thumbnail.height,32);
          mVaConvertor->VPPBitBlit(msg->interBuf->GetRenderTargetHandle(),msg->postviewBuf->GetRenderTargetHandle());
-         msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
+         status = msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
+         if (status != NO_ERROR) {
+             LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+         }
          if(!mConfig.jpegfromdriver) {
-             msg->interBuf->LockGrallocData(snapshotbuff,&size);
+             status = msg->interBuf->LockGrallocData(snapshotbuff,&size);
+             if (status != NO_ERROR) {
+                 LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+             }
              mainbuf = snapshotbuff[0];
              mainSize = size;
          } else {
@@ -326,7 +332,10 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
     else
     {
          if(!mConfig.jpegfromdriver) {
-            msg->interBuf->LockGrallocData(snapshotbuff,&size);
+            status = msg->interBuf->LockGrallocData(snapshotbuff,&size);
+            if (status != NO_ERROR) {
+                LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+            }
             mainbuf = snapshotbuff[0];
             mainSize = size;
          } else {
@@ -344,12 +353,9 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
          }
     }
     // When the encoding is done, send back the buffers to camera
-    if (msg->snaphotBuf != NULL)
+    if (mConfig.jpegfromdriver && msg->snaphotBuf != NULL) {
         msg->snaphotBuf->decrementProcessor();
-    if (msg->interBuf!= NULL)
-        msg->interBuf->decrementProcessor();
-    if (msg->postviewBuf!= NULL)
-        msg->postviewBuf->decrementProcessor();
+    }
 
     LOG1("Releasing jpegBuf @%p", jpegBuf.getData());
     jpegBuf.releaseMemory();
@@ -361,9 +367,6 @@ status_t PictureThread::handleMessageFlush()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
-
-    if(mVaConvertor)
-       mVaConvertor->stop();
 
     mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;
