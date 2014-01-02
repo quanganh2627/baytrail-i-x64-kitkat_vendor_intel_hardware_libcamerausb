@@ -71,21 +71,22 @@ private:
 
 struct mfx_gralloc_drm_handle_t {
     native_handle_t base;
-    int magic;
+    int magic;  // poor man's validation
+    int width;  // \see alloc_device_t::alloc
+    int height; // \see alloc_device_t::alloc
+    int format; // \see alloc_device_t::alloc
+    int usage;  // \see alloc_device_t::alloc
 
-    int width;
-    int height;
-    int format;
-    int usage;
+    int pid;    // creator process id
+    int name;   // \see drm_intel_bo_flink
 
-    int name;
-    int pid;  // creator
-    mutable int other;    // registered owner (pid)
-    mutable union { int data1; mutable drm_intel_bo *bo; };  // drm buffer object
-    union { int data2; uint32_t fb; }; // framebuffer id
-    int pitch;    // buffer pitch (in bytes)
-    int allocWidth;  // Allocated buffer width in pixels
-    int allocHeight;   // Allocated buffer height in lines
+    union { int data0; uint32_t fb; };                      // drm framebuffer id
+    union { int data1; uint32_t drmformat; };               // drm framebuffer format
+    union { int data2; uint32_t gmmformat; };               // gmm buffer format
+    int bpp;                                                // pixel size (bytes per pixel)
+    int pitch;                                              // buffer pitch (in bytes)
+    int allocWidth;                                         // Allocated buffer width in pixels.
+    int allocHeight;                                        // Allocated buffer height in lines.
 };
 
 }; // namespace android
