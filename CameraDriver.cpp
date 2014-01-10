@@ -1417,9 +1417,13 @@ int CameraDriver::set_capture_mode(Mode deviceMode)
     parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     parm.parm.capture.capturemode = deviceMode;
     LOG1("%s !! camID %d fd %d", __FUNCTION__, mCameraId, mCameraSensor[mCameraId]->fd);
+
+    /* retry once in case of uvc probe failure */
     if (ioctl(mCameraSensor[mCameraId]->fd, VIDIOC_S_PARM, &parm) < 0) {
-        ALOGE("error %s", strerror(errno));
-        return -1;
+        if (ioctl(mCameraSensor[mCameraId]->fd, VIDIOC_S_PARM, &parm) < 0) {
+            ALOGE("error %s", strerror(errno));
+            return -1;
+        }
     }
 
     return 0;
