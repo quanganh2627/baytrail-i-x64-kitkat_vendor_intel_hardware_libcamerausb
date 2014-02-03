@@ -289,7 +289,7 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_JPEG_QUALITY, "75");
 
     params->set(CameraParameters::KEY_ZOOM, 0);
-    params->set(CameraParameters::KEY_ZOOM_SUPPORTED, CameraParameters::TRUE);
+    params->set(CameraParameters::KEY_ZOOM_SUPPORTED, CameraParameters::FALSE);
     getZoomRatios(MODE_PREVIEW, params);
 
     params->set(CameraParameters::KEY_EXPOSURE_COMPENSATION,0);
