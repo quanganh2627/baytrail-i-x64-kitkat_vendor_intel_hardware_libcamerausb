@@ -56,6 +56,7 @@ LOCAL_SHARED_LIBRARIES := \
         libmix_videovpp \
         libjpegdec \
         libhardware \
+        libexpat \
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE := camera.$(TARGET_PRODUCT)

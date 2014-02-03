@@ -18,6 +18,7 @@
 #define ANDROID_LIBCAMERA_CAMERA_DRIVER
 
 #include <set>
+#include <map>
 #include <utils/Timers.h>
 #include <utils/Errors.h>
 #include <utils/Vector.h>
@@ -283,6 +284,10 @@ private:
     static int enumerateCameras();
     static void cleanupCameras();
     const char* getMaxSnapShotResolution();
+    static String8 getDeviceProperty(char *devName, const char *key);
+    static void startElementCallback(void *userData, const char *name, const char **atts);
+    static void endElementCallback(void *userData, const char *name);
+    static int readPropXml();
 
     // Open, Close, Configure methods
     int openDevice();
@@ -329,6 +334,14 @@ private:
     bool mMapRoiFlag;
     bool mMapColorFxFlag;
     static struct CameraSensor *mCameraSensor[MAX_CAMERAS];     // all camera sensors in CameraDriver Class.
+
+    struct CameraProp {
+        String8 vendorId;
+        String8 productId;
+        int facing;
+        int orientation;
+    };
+    static std::map<String8, CameraProp> mCameraProp; // hash <vendor_productid, CameraProp>
 
     Mode mMode;
     sp<Callbacks> mCallbacks;

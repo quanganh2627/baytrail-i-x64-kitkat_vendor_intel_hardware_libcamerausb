@@ -31,7 +31,8 @@
 #include "DumpImage.h"
 #include <linux/uvcvideo.h>
 #include <linux/usb/video.h>
-
+#include <dirent.h>
+#include <libexpat/expat.h>
 
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
 
@@ -56,6 +57,7 @@ namespace android {
 ////////////////////////////////////////////////////////////////////
 
 CameraDriver::CameraSensor *CameraDriver::mCameraSensor[MAX_CAMERAS];
+std::map<String8, CameraDriver::CameraProp> CameraDriver::mCameraProp;
 Mutex CameraDriver::mCameraSensorLock;
 int CameraDriver::numCameras = 0;
 
@@ -1715,6 +1717,116 @@ status_t CameraDriver::getCameraInfo(int cameraId, camera_info *cameraInfo)
     return NO_ERROR;
 }
 
+
+int CameraDriver::enumerateCameras(){
+    LOG1("@%s", __FUNCTION__);
+    static struct CameraSensor *newDev;
+    struct dirent *dirp = 0;
+    DIR *dp = 0;
+
+    Mutex::Autolock _l(mCameraSensorLock);
+    // clean up old enumeration.
+    cleanupCameras();
+
+    // load prop data
+    if(readPropXml() != 0)
+        goto abort;
+
+    //start a new enumeration for all cameras
+    // Get number of v4l2 devices
+    if ((dp = opendir("/sys/class/video4linux")) == NULL){
+        ALOGE("No Video4Linux devices found.!");
+        goto abort;
+    }
+    while ((dirp = readdir(dp)) != NULL){
+        if (dirp->d_name[0] != '.')
+        {
+           // Store device name
+           newDev = new CameraSensor;
+           if (!newDev) {
+               ALOGE("%s: No mem for enumeration, abort.", __FUNCTION__);
+               closedir(dp);
+               goto abort;
+           }
+           memset(newDev, 0, sizeof(struct CameraSensor));
+           newDev->devName = new char[256];
+           if (!newDev->devName) {
+               ALOGE("%s: No mem for dev name, abort.", __FUNCTION__);
+               closedir(dp);
+               goto abort;
+           }
+           String8 devicePath = String8::format("%s%s","/dev/",dirp->d_name);
+           strncpy(newDev->devName, devicePath.string(), 256);
+
+           // Get device Vendor ID and Product ID
+           String8 vendorId  = getDeviceProperty(dirp->d_name, "idVendor");
+           String8 productId = getDeviceProperty(dirp->d_name, "idProduct");
+
+           // populate facing and orientation from prop
+           String8 vendorproductId = String8::format("%s_%s", vendorId.string(), productId.string());
+           std::map<String8,CameraDriver::CameraProp>::iterator it;
+           it = mCameraProp.find(vendorproductId);
+           if (it != mCameraProp.end()) {
+               // Store facing
+               if (it->second.facing == 0)
+                   newDev->info.facing = CAMERA_FACING_BACK;
+               else
+                   newDev->info.facing = CAMERA_FACING_FRONT;
+               // setup orientation
+               newDev->info.orientation = it->second.orientation;
+           }
+           else {
+               ALOGE("Vendor and Product id not found in prop.");
+               // may be there can be an another camera
+               continue;
+           }
+           // Setup fd
+           newDev->fd = -1;
+
+           //It seems we got all info of a new camera
+           ALOGI("%s: Detected camera (%d) %s %s %d",
+                __FUNCTION__, numCameras, newDev->devName,
+                newDev->info.facing == CAMERA_FACING_FRONT ? "front" : "back",
+                newDev->info.orientation);
+           // Number of camera
+           mCameraSensor[numCameras] = newDev;
+           numCameras++;
+        }
+    }
+    closedir(dp);
+    ALOGI("Found %d Video4Linux devices.",numCameras);
+    if (numCameras <= 0) {
+        ALOGE("%s: Invalid #(%d) of camera(s), abort.", __FUNCTION__, numCameras);
+        goto abort;
+    }
+    else {
+        // We just want to have rear camera first
+         if(numCameras >= 2) {
+            if(mCameraSensor[0]->info.facing == CAMERA_FACING_FRONT){
+                struct CameraSensor *dev = mCameraSensor[0];
+                mCameraSensor[0] = mCameraSensor[1];
+                mCameraSensor[1] = dev;
+            }
+        }
+    }
+    return numCameras;
+
+abort:
+    ALOGE("%s: Terminate camera enumeration !!", __FUNCTION__);
+    cleanupCameras();
+    //something wrong, further cleaning job
+    if (newDev) {
+        if (newDev->devName) {
+            delete []newDev->devName;
+            newDev->devName = 0;
+        }
+        delete newDev;
+        newDev = 0;
+    }
+    return 0;
+}
+
+/*
 // Prop definitions.
 static const char *PROP_PREFIX = "ro.camera";
 static const char *PROP_NUMBER = "number";
@@ -1842,6 +1954,7 @@ abort:
     }
     return 0;
 }
+*/
 
 // Clean up camera  enumeration info
 // Caller needs to take care syncing
@@ -2195,6 +2308,125 @@ status_t CameraDriver::setMeteringAreas(CameraWindow *windows, int numWindows)
 {
     ALOGE("metering not supported");
     return INVALID_OPERATION;
+}
+
+// We want to get the camera property like version, vendorid, productid for a given device.
+// Input : devName - video0 | video1 , key - verion | idVendor | idProduct
+String8 CameraDriver::getDeviceProperty(char *devName, const char *key)
+{
+    FILE *fp;
+    char retProperty[256];
+    retProperty[0] = 0;
+
+    // form sysfs path
+    String8 cmd = String8::format("%s%s","cd /sys/class/video4linux/",devName);
+    cmd += String8::format("%s%s"," && cd $(pwd -P) && cd ../../../ && cat ",key);
+
+    // Get device property
+    fp = popen(cmd,"r");
+    if (fp != NULL) {
+        if (fgets(retProperty, 256, fp) != NULL)
+        pclose(fp);
+    }
+    retProperty[strlen(retProperty)-1] = '\0';
+    String8 ret = String8::format("%s",retProperty);
+    return ret;
+}
+
+//Read camera prop xml file and populate the content in CameraProp
+int CameraDriver::readPropXml()
+{
+    ALOGI("%s",__FUNCTION__);
+    int ret    = -1;
+    int done   = 0;
+    FILE *fp   = NULL;
+    void *pBuf = NULL;
+    const int mBufSize = 4*1024;
+    char productName[PROPERTY_VALUE_MAX];
+    String8 fileName;
+    CameraProp *pProp = NULL;
+
+    // Get device product name
+    ret = property_get("ro.product.name", productName, NULL);
+    if (ret <= 0) {
+        ALOGE("Failed to get product name.");
+        return -1;
+    }
+    fileName = String8::format("%s%s%s", "/system/etc/camera_", productName,".xml");
+    ALOGI("Prop file used is - %s", fileName.string());
+    // Open prop file
+    fp = fopen(fileName, "r");
+    if (fp == NULL) {
+        ALOGE("Camera Prop file open error.");
+        return -1;
+    }
+    // Initialise expat xml parser
+    XML_Parser parser = XML_ParserCreate(NULL);
+    pProp = (struct CameraProp*)malloc(sizeof(struct CameraProp));
+    pBuf  = malloc(mBufSize);
+    if (parser == NULL || pProp == NULL || pBuf == NULL) {
+        ALOGE("memory alloc error.");
+        goto quit;
+    }
+    // Setup callbacks
+    XML_SetUserData(parser, pProp);
+    XML_SetElementHandler(parser, startElementCallback, endElementCallback);
+    // Parse xml
+    while(!done) {
+        int length = (int)fread(pBuf, sizeof(char), mBufSize, fp);
+        if (!length) {
+            if (ferror(fp)) {
+                clearerr(fp);
+                goto quit;
+            }
+        }
+        done = feof(fp);
+        if (XML_Parse(parser, (const char *)pBuf, length, done) == XML_STATUS_ERROR) {
+            ALOGE("Parser error.");
+            goto quit;
+        }
+    }
+    // cleanup
+    fclose(fp);
+    XML_ParserFree(parser);
+    free(pBuf);
+    free(pProp);
+    return 0;
+
+quit:
+    if (fp)
+        fclose(fp);
+    if (parser)
+        XML_ParserFree(parser);
+    if (pBuf)
+        free(pBuf);
+    if (pProp)
+        free(pProp);
+    return -1;
+}
+
+void CameraDriver::startElementCallback(void *userData, const char *name, const char **atts)
+{
+    //ALOGI("%s",__FUNCTION__);
+    CameraProp *prop = (CameraProp*) userData;
+    if (strcmp(name, "vendorId") == 0)
+        prop->vendorId = String8::format("%s",atts[1]);
+    else if (strcmp(name, "productId") == 0)
+        prop->productId = String8::format("%s",atts[1]);
+    else if (strcmp(name, "facing") == 0)
+        prop->facing = ((strcmp(atts[1], "CAMERA_FACING_FRONT") == 0) ? CAMERA_FACING_FRONT : CAMERA_FACING_BACK);
+    else if (strcmp(name, "orientation") == 0)
+        prop->orientation = atoi(atts[1]);
+}
+
+void CameraDriver::endElementCallback(void *userData, const char *name)
+{
+    //ALOGI("%s",__FUNCTION__);
+    CameraProp *prop = (CameraProp*) userData;
+    if (strcmp(name, "prop") == 0) {
+       String8 vendorproductId = String8::format("%s_%s", prop->vendorId.string(), prop->productId.string());
+       mCameraProp.insert(std::pair<String8, CameraProp>(vendorproductId, *prop));
+    }
 }
 
 } // namespace android
