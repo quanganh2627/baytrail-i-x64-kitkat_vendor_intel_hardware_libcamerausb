@@ -1,7 +1,5 @@
 # Build the unit tests.
 LOCAL_PATH:= $(call my-dir)
-include $(CLEAR_VARS)
-
 # Build the unit tests.
 test_src_files := \
     camtest_Features.cpp \
@@ -25,8 +23,6 @@ c_includes := \
     $(call include-path-for, libhardware)/hardware \
     $(call include-path-for, system-core) \
 
-module_tags := eng tests debug
-
 $(foreach file,$(test_src_files), \
     $(eval include $(CLEAR_VARS)) \
     $(eval LOCAL_SHARED_LIBRARIES := $(shared_libraries)) \
@@ -34,7 +30,7 @@ $(foreach file,$(test_src_files), \
     $(eval LOCAL_C_INCLUDES := $(c_includes)) \
     $(eval LOCAL_SRC_FILES := $(file)) \
     $(eval LOCAL_MODULE := $(notdir $(file:%.cpp=%))) \
-    $(eval LOCAL_MODULE_TAGS := $(module_tags)) \
+    $(eval LOCAL_MODULE_TAGS := tests) \
     $(eval include $(BUILD_EXECUTABLE)) \
 )
 
