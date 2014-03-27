@@ -969,6 +969,11 @@ status_t ControlThread::stopPreviewCore()
         if (status != NO_ERROR)
             ALOGE("error flushing video buffers");
     }
+
+    // should distinguishly return BUFFER_TYPE_PREVIEW only as they are
+    // freed after mDriver->stop()
+    mMessageQueue.remove(MESSAGE_ID_RETURN_BUFFER);
+
     status = mDriver->stop();
     if (status == NO_ERROR) {
         mState = STATE_STOPPED;
