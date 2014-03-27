@@ -167,8 +167,8 @@ exit:
     {
         void *srcaddr[3];
         int size = 0;
-        int alignHeight=0;
-        alignHeight = ALIGN(mPreviewHeight,32);//whether need this
+        int alignHeight = mPreviewHeight;
+
         if(mOutputFormat == V4L2_PIX_FMT_NV21)
         {
            //currently, vpp don't support colorconvert from yuv422h to nv21, so convert to yv12 with vpp, and then convert from yv12 to NV21

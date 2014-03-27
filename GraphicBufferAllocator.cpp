@@ -108,7 +108,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     {
        gcamBuff->mType = BUFFER_TYPE_JPEGDEC;
     }
-    alignedheight = ALIGN(height,32);
+    alignedheight = height;
     res = mGrAllocDev->alloc(mGrAllocDev, width, alignedheight,
             HalFormat,
             GRALLOC_USAGE_HW_RENDER,
