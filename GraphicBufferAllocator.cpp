@@ -28,7 +28,7 @@
 #include "ColorConverter.h"
 #include "VAConvertor.h"
 #include "GraphicBufferAllocator.h"
-
+#include <ufo/gralloc.h>
 
 namespace android
 {
@@ -112,6 +112,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     unsigned long boname;
     uint32_t fourcc;
     int bpp;
+    intel_ufo_buffer_details_t details;
 
     LOG1("@%s,gcamBuff=%p", __FUNCTION__,gcamBuff);
     memset((void*)gcamBuff,0,sizeof(CameraBuffer));
@@ -135,8 +136,8 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     {
        gcamBuff->mType = BUFFER_TYPE_JPEGDEC;
     }
-    alignedheight = ALIGN(height,32);
-    res = mGrAllocDev->alloc(mGrAllocDev, width, alignedheight,
+
+    res = mGrAllocDev->alloc(mGrAllocDev, width, height,
             HalFormat,
             GRALLOC_USAGE_HW_RENDER,
             &handle, &stride);
@@ -151,6 +152,16 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
        ALOGE("alloc failed");
        return res;
     }
+
+    mGralloc_module->perform(mGralloc_module, INTEL_UFO_GRALLOC_MODULE_PERFORM_GET_BO_INFO, handle, &details);
+    if(res != NO_ERROR)
+    {
+       ALOGE("alloc failed for GET_BO_INFO");
+       return res;
+    }
+
+    alignedheight = details.allocHeight;
+
     pGrallocHandle = (struct mfx_gralloc_drm_handle_t *)handle;
     gcamBuff->mStride = pGrallocHandle->pitch;
     if((HalFormat == HAL_PIXEL_FORMAT_YV12) || (HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL))

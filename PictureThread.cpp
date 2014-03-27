@@ -144,7 +144,7 @@ status_t PictureThread::encodeToJpeg(void *mainBuf, int mainSize, void *thumbBuf
         mEncoderInBuf.alignHeight = alignPicHeight;
         mEncoderInBuf.size = frameSize(mConfig.picture.format,
                             picture_stride,
-                            ALIGN(mConfig.picture.height,32));
+                            mConfig.picture.height);
         mEncoderOutBuf.clear();
         mEncoderOutBuf.buf = (unsigned char*)mOutData;
         mEncoderOutBuf.width = mConfig.picture.width;
@@ -290,7 +290,7 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
     }
 
     // Encode the image
-    alignPicHeight = ALIGN(mConfig.picture.height,32);
+    alignPicHeight = msg->interBuf->GetRenderTargetHandle()->height;
     if(!mConfig.jpegfromdriver) {
         mVaConvertor->VPPBitBlit(msg->snaphotBuf->GetRenderTargetHandle(),msg->interBuf->GetRenderTargetHandle());
     }
@@ -301,7 +301,7 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
              ALOGE("postviewBuf is NULL!");
              return UNKNOWN_ERROR;
          }
-         alignThumbnailHeight = ALIGN(mConfig.thumbnail.height,32);
+         alignThumbnailHeight = mConfig.thumbnail.height;
          mVaConvertor->VPPBitBlit(msg->interBuf->GetRenderTargetHandle(),msg->postviewBuf->GetRenderTargetHandle());
          msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
          if(!mConfig.jpegfromdriver) {

@@ -44,8 +44,6 @@
 #include <va/va_vpp.h>
 #include <va/va_android.h>
 #include <va/va_tpi.h>
-
-#include <hardware/gralloc.h>
 #include <ufo/graphics.h>
 
 #include <intel_bufmgr.h>
@@ -57,8 +55,6 @@
 #define MAX_NUM_BUFFER_STORE 32
 #define BufferID int
 #define NO_ZOOM  1.0
-
-#define INTEL_UFO_GRALLOC_MODULE_PERFORM_GET_BO_NAME    4 // (buffer_handle_t, uint32_t*)
 
 
 namespace android {

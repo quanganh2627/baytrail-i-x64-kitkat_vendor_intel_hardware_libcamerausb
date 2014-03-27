@@ -231,7 +231,7 @@ int VAConvertor::addInputBuffer(buffer_handle_t pBufHandle, int width, int heigh
 
     pGrallocHandle = (struct mfx_gralloc_drm_handle_t *) pBufHandle;
     rt->width    = width;
-    rt->height   = ALIGN(height,32);
+    rt->height   = height;
     rt->stride   = pGrallocHandle->pitch;
     rt->type     = RenderTarget::KERNEL_DRM;
     rt->handle   = pGrallocHandle->name;
@@ -260,7 +260,7 @@ int VAConvertor::addOutputBuffer(buffer_handle_t pBufHandle, int width, int heig
     //FIXME, will be removed when va driver support buffer handle directly.
     pGrallocHandle = (struct mfx_gralloc_drm_handle_t *) pBufHandle;
     rt->width    = width;
-    rt->height   = ALIGN(height,32);
+    rt->height   = height;
     rt->stride   = pGrallocHandle->pitch;
     rt->type     = RenderTarget::KERNEL_DRM;
     rt->handle   = pGrallocHandle->name;
@@ -335,7 +335,7 @@ status_t VAConvertor::ConfigBuffer(RenderTarget *rt, buffer_handle_t pBufHandle,
     }
 
     rt->width    = width;
-    rt->height   = ALIGN(height,32);
+    rt->height   = height;
     rt->stride   = pGrallocHandle->pitch;
     rt->type     = RenderTarget::KERNEL_DRM;
     rt->handle   = pGrallocHandle->name;
