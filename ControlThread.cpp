@@ -644,10 +644,13 @@ status_t ControlThread::returnCaptureBuffer(CameraBuffer *buff)
     if(buff == yuvBuffer || buff == postviewBuffer || buff == interBuff) {
         mGraphicBufAlloc->free(buff);
         if(buff == yuvBuffer) {
+            delete yuvBuffer;
             yuvBuffer = 0;
         } else if (buff == postviewBuffer) {
+            delete postviewBuffer;
             postviewBuffer = 0;
         } else if (buff == interBuff) {
+            delete interBuff;
             interBuff = 0;
         }
         return status;
@@ -1240,6 +1243,8 @@ status_t ControlThread::handleMessageTakePicture()
            status = mGraphicBufAlloc->allocate(yuvBuffer,width,height,mDecoderedFormat);
            if(status != NO_ERROR)
            {
+               delete yuvBuffer;
+               yuvBuffer = NULL;
                ALOGE("allocateGrallocBuffer failed!");
                return status;
            }
@@ -1268,8 +1273,13 @@ status_t ControlThread::handleMessageTakePicture()
             if(ret != NO_ERROR)
             {
                 ALOGE("allocate graphic buffer failed");
-                if (yuvBuffer != NULL)
+                delete postviewBuffer;
+                postviewBuffer = NULL;
+                if (yuvBuffer != NULL) {
                     mGraphicBufAlloc->free(yuvBuffer);
+                    delete yuvBuffer;
+                    yuvBuffer = NULL;
+                }
                 return -1;
             }
             postviewBuffer->setOwner(this);
@@ -1283,11 +1293,19 @@ status_t ControlThread::handleMessageTakePicture()
             status = mGraphicBufAlloc->allocate(interBuff,width,height,mJpegEncoderFormat);
             if(status != NO_ERROR)
             {
+                 delete interBuff;
+                 interBuff = NULL;
                  ALOGE("allocate graphic buffer failed");
-                 if (yuvBuffer != NULL)
+                 if (yuvBuffer != NULL) {
                     mGraphicBufAlloc->free(yuvBuffer);
-                 if (postviewBuffer != NULL)
+                    delete yuvBuffer;
+                    yuvBuffer = NULL;
+                 }
+                 if (postviewBuffer != NULL) {
                     mGraphicBufAlloc->free(postviewBuffer);
+                    delete postviewBuffer;
+                    postviewBuffer = NULL;
+                 }
                  return -1;
             }
             interBuff->setOwner(this);
@@ -1323,6 +1341,8 @@ status_t ControlThread::handleMessageTakePicture()
                  if(ret != NO_ERROR)
                  {
                       LOGE("allocate graphic buffer failed");
+                      delete postviewBuffer;
+                      postviewBuffer = NULL;
                       return -1;
                  }
                  postviewBuffer->setOwner(this);
@@ -2086,7 +2106,7 @@ status_t ControlThread:: processParamSetMeteringAreas(const CameraParameters *ol
             preSetCameraWindows(meteringWindows, winCount);
             status = mDriver->setMeteringAreas(meteringWindows, winCount);
         }
-        delete meteringWindows;
+        delete [] meteringWindows;
     }
     return status;
 }
