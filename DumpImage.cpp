@@ -44,7 +44,7 @@ void write_image(const void *data, const int size, int width, int height,const c
         LOGE ("open file %s failed %s", filename, strerror (errno));
         return ;
     }
-    if(format == HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL)
+    if(format == HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL)
     {
         //Y
         fwrite (data,width*height, 1, fp);

@@ -46,6 +46,7 @@
 #include <va/va_tpi.h>
 
 #include <hardware/gralloc.h>
+#include <ufo/graphics.h>
 
 #include <intel_bufmgr.h>
 #include <i915_drm.h>
@@ -57,11 +58,7 @@
 #define BufferID int
 #define NO_ZOOM  1.0
 
-#define HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL 0x104
-
-#define HAL_PIXEL_FORMAT_NV12_TILED_INTEL 0x100 // NV12
 #define INTEL_UFO_GRALLOC_MODULE_PERFORM_GET_BO_NAME    4 // (buffer_handle_t, uint32_t*)
-//#define VA_SURFACE_ATTRIB_MEM_TYPE_KERNEL_DRM       0x10000000
 
 
 namespace android {

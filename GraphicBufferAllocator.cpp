@@ -104,7 +104,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     {
        gcamBuff->mType = BUFFER_TYPE_VIDEOENCODER;
     }
-    else if(HalFormat == HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL)
+    else if(HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL)
     {
        gcamBuff->mType = BUFFER_TYPE_JPEGDEC;
     }
@@ -130,7 +130,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     {
          gcamBuff->mGraBuffSize = gcamBuff->mStride * height *3/2;
     }
-    else if((HalFormat == HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL) ||(HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_I))
+    else if((HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL) ||(HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_I))
     {
         gcamBuff->mGraBuffSize = gcamBuff->mStride * height *3;
     }
