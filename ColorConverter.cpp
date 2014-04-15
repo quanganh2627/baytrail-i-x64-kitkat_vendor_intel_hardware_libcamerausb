@@ -986,7 +986,7 @@ status_t colorConvertwithStride(int srcFormat, int dstFormat, int stride,int wid
     case HAL_PIXEL_FORMAT_NV12_TILED_INTEL:
         return colorConvertNV12withStride(dstFormat,stride, width, alignHeight,height, src, dst);
     case V4L2_PIX_FMT_YUV422P:
-    case HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL:
+    case HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL:
         return colorConvertYUV422PwithStride(dstFormat,stride, width, alignHeight,height, src, dst);
     case V4L2_PIX_FMT_YUV420://yv12
         return colorConvertYV12withStride(dstFormat,stride, width, alignHeight,height, src, dst);
@@ -1070,7 +1070,7 @@ int V4L2FormatToHalPixel(int format)
         case V4L2_PIX_FMT_NV21:
             return HAL_PIXEL_FORMAT_YCrCb_420_SP;
         case V4L2_PIX_FMT_YUV422P:
-            return HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL;
+            return HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL;
         case V4L2_PIX_FMT_YUYV://yuy2
             return HAL_PIXEL_FORMAT_YCbCr_422_I;
         default:
@@ -1085,7 +1085,7 @@ int HalPixelToV4L2Format(int format)
             return V4L2_PIX_FMT_YVU420;
         case HAL_PIXEL_FORMAT_NV12_TILED_INTEL:
             return V4L2_PIX_FMT_NV12;
-        case HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL:
+        case HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL:
             return V4L2_PIX_FMT_YUV422P;
         case HAL_PIXEL_FORMAT_YCbCr_422_I://yuy2
             return V4L2_PIX_FMT_YUYV;

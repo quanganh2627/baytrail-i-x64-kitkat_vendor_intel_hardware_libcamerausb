@@ -148,7 +148,6 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED, CameraParameters::FALSE);
 
     params->set(CameraParameters::KEY_SUPPORTED_PICTURE_FORMATS,CameraParameters::PIXEL_FORMAT_JPEG);
-    // workaround to fix CTS issue, the thumbnail resolution will be moved to back 320x240 when root cause has been found
     params->set(CameraParameters::KEY_SUPPORTED_JPEG_THUMBNAIL_SIZES,"0x0,160x120"); // 0x0 indicates "not supported"
     params->set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, 160);
     params->set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, 120);

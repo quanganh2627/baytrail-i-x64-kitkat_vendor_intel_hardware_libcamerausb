@@ -191,7 +191,7 @@ status_t VAConvertor::mapGraphicFmtToVAFmt(int &vaRTFormat, int &vaFourcc, int g
             vaRTFormat = VA_RT_FORMAT_YUV422;
             vaFourcc   = VA_FOURCC_YUY2;
             break;
-        case HAL_PIXEL_FORMAT_YCrCb_422_H_INTEL:
+        case HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL:
             vaRTFormat = VA_RT_FORMAT_YUV422;
             vaFourcc = VA_FOURCC_422H;
             break;
