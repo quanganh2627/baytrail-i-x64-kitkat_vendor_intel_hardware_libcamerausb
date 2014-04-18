@@ -108,7 +108,7 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     {
        gcamBuff->mType = BUFFER_TYPE_JPEGDEC;
     }
-    alignedheight = height;
+    alignedheight = ((height == 120) ||(height == 1080))? ALIGN(height,32): height;//We need to work with VPG team and deliver the correct ufo.
     res = mGrAllocDev->alloc(mGrAllocDev, width, alignedheight,
             HalFormat,
             GRALLOC_USAGE_HW_RENDER,

@@ -167,7 +167,8 @@ exit:
     {
         void *srcaddr[3];
         int size = 0;
-        int alignHeight = mPreviewHeight;
+	//For cts-verifier issue, we still need to align32 to prevent from the issue of green frames for (160 X120, 1920 X 1080) under 1080p camera.
+        int alignHeight = ((mPreviewHeight == 120) ||(mPreviewHeight == 1080))? ALIGN(mPreviewHeight,32): mPreviewHeight;
 
         if(mOutputFormat == V4L2_PIX_FMT_NV21)
         {
