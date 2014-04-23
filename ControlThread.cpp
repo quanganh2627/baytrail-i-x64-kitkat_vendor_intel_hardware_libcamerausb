@@ -993,6 +993,7 @@ status_t ControlThread::stopPreviewCore()
     if(mCallbackMidBuff != NULL)
     {
        mGraphicBufAlloc->free(mCallbackMidBuff);
+       delete mCallbackMidBuff;
        mCallbackMidBuff = 0;
     }
     if(mVPPOutBufferPool !=NULL)
