@@ -38,7 +38,7 @@ PictureThread::PictureThread() :
     ,mCallbacks(NULL)
     ,mOutData(NULL)
     ,mExifBuf(NULL)
-    ,mVaConvertor(new VAConvertor())
+    ,mVaConvertor(new VAConvertor(false))
     ,mInputFormat(V4L2_PIX_FMT_YUV422P)
 {
     LOG1("@%s", __FUNCTION__);
@@ -302,6 +302,7 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
              return UNKNOWN_ERROR;
          }
          alignThumbnailHeight = mConfig.thumbnail.height;
+
          mVaConvertor->VPPBitBlit(msg->interBuf->GetRenderTargetHandle(),msg->postviewBuf->GetRenderTargetHandle());
          status = msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
          if (status != NO_ERROR) {

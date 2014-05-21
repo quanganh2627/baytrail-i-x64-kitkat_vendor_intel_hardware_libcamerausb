@@ -42,8 +42,9 @@ namespace android {
  * Will be remove when buffer handle can be use directly in surface creation
  */
 
-VAConvertor::VAConvertor():
+VAConvertor::VAConvertor(bool cache):
     mInitialized(false),
+    mIsCacheRenderBuf(cache),
     mVA(NULL),
     mVPP(NULL),
     mIIDKey(0),
@@ -69,7 +70,7 @@ status_t VAConvertor::init()
     VAStatus vaStatus;
     LOG1("@%s", __FUNCTION__);
 
-    mVA = new VideoVPPBase();
+    mVA = new VideoVPPBase(mIsCacheRenderBuf);
     if (!mVA) {
         LOGE("Fail to construct VideoVPPBase");
         return NO_MEMORY;

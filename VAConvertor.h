@@ -66,7 +66,7 @@ namespace android {
 class VAConvertor{
 // constructor destructor
 public:
-    VAConvertor();
+    VAConvertor(bool reuse=true);
     ~VAConvertor();
 
 // public methods
@@ -92,6 +92,7 @@ private:
 // private methods
 private:
     bool  mInitialized;
+    bool  mIsCacheRenderBuf;
     VideoVPPBase *mVA;
     VPParameters *mVPP;
     KeyedVector<BufferID , RenderTarget *> mIBuffers;
