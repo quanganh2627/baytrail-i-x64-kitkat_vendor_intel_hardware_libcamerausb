@@ -73,6 +73,33 @@ void CamGraphicBufferAllocator::deinit()
     mGrAllocDev =NULL;
 }
 
+status_t static mapGraphicFmtToVAFmt(int &vaRTFormat, int &vaFourcc, int graphicFormat)
+{
+    switch (graphicFormat) {
+        case HAL_PIXEL_FORMAT_NV12_TILED_INTEL:
+            vaRTFormat = VA_RT_FORMAT_YUV420;
+            vaFourcc   = VA_FOURCC_NV12;
+            break;
+        case HAL_PIXEL_FORMAT_YCbCr_422_I:
+            vaRTFormat = VA_RT_FORMAT_YUV422;
+            vaFourcc   = VA_FOURCC_YUY2;
+            break;
+        case HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL:
+            vaRTFormat = VA_RT_FORMAT_YUV422;
+            vaFourcc = VA_FOURCC_422H;
+            break;
+        case HAL_PIXEL_FORMAT_YV12:
+             vaRTFormat = VA_RT_FORMAT_YUV420;
+             vaFourcc = VA_FOURCC_YV12;
+             break;
+        default:
+            LOGW("Graphic format:%x is not supported", graphicFormat);
+            return BAD_VALUE;
+    }
+
+    return OK;
+}
+
 status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, int height, int format)
 {
     int res = NO_ERROR;
@@ -143,11 +170,14 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
         ALOGE("gcamBuff->mDecTargetBuf == NULL");
         return -1;
     }
+    // one time conversion
+    if (OK != mapGraphicFmtToVAFmt(gcamBuff->mDecTargetBuf->format, gcamBuff->mDecTargetBuf->pixel_format, HalFormat))
+        return -1;
+
     gcamBuff->mDecTargetBuf->type = RenderTarget::KERNEL_DRM;
     gcamBuff->mDecTargetBuf->handle = boname;
     gcamBuff->mDecTargetBuf->width = width;
     gcamBuff->mDecTargetBuf->height = alignedheight;
-    gcamBuff->mDecTargetBuf->pixel_format = HalFormat;
     gcamBuff->mDecTargetBuf->rect.x = gcamBuff->mDecTargetBuf->rect.y = 0;
     gcamBuff->mDecTargetBuf->rect.width = gcamBuff->mDecTargetBuf->width;
     gcamBuff->mDecTargetBuf->rect.height = height;

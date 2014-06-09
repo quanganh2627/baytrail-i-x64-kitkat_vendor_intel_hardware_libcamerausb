@@ -305,18 +305,8 @@ status_t VAConvertor::VPPColorConverter(buffer_handle_t input_handle,buffer_hand
 
 status_t VAConvertor::VPPBitBlit(RenderTarget *in, RenderTarget *out)
 {
-    VAStatus vaStatus;
-    int inHalformat = 0;
-    int outHalformat = 0;
     LOG1("@%s", __FUNCTION__);
-    inHalformat = in->pixel_format;
-    mapGraphicFmtToVAFmt(in->format,in->pixel_format,inHalformat);
-    outHalformat = out->pixel_format;
-    mapGraphicFmtToVAFmt(out->format,out->pixel_format,outHalformat);
-    vaStatus = mVA->perform(*in, *out, mVPP, false);
-    in->pixel_format = inHalformat;
-    out->pixel_format = outHalformat;
-    return vaStatus;
+    return mVA->perform(*in, *out, mVPP, false);
 }
 
 /*
@@ -342,9 +332,8 @@ status_t VAConvertor::ConfigBuffer(RenderTarget *rt, buffer_handle_t pBufHandle,
     rt->rect.x   = rt->rect.y = 0;
     rt->rect.width   = rt->width;
     rt->rect.height  = height;
-    rt->pixel_format =  format;
 
-    return NO_ERROR;
+    return mapGraphicFmtToVAFmt(rt->format,rt->pixel_format,format);
 }
 
 }; // namespace android
