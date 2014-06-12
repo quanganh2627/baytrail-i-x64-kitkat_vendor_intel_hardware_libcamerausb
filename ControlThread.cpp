@@ -884,7 +884,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     {
         mVPPOutBufferPool = new CameraBuffer[mNumVPPOutBuffers];
         for (int i = 0; i < mNumVPPOutBuffers; i++) {
-             status = mGraphicBufAlloc->allocate(&mVPPOutBufferPool[i], previewWidth, previewHeight,mRecordformat);
+             status = mGraphicBufAlloc->allocate(&mVPPOutBufferPool[i], videoWidth, videoHeight,mRecordformat);
              if (status != NO_ERROR)
              {
                 ALOGE("allocateGrallocBuffer failed!");
