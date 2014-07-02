@@ -109,7 +109,7 @@ public:
      * as soon as it holds a reference before accessing data in the buffer.
      */
     void incrementProcessor();
-    int LockGrallocData(void** addr,int* size);
+    void LockGrallocData(void** addr,int* size);
     void UnLockGrallocData();
     buffer_handle_t GetGrabuffHandle();
 

@@ -401,6 +401,8 @@ private:
     CameraBuffer *yuvBuffer;
     CameraBuffer *postviewBuffer;
     CameraBuffer *interBuff;
+    int driverWidth; //the actual width from camera module
+    int driverHeight;//the actual height from camera module
     bool mJpegFromDriver;  //whether get jpeg file from driver for jpeg encoder
     bool mRestartdevice;  //whether need to restart the device when picture size changed
 

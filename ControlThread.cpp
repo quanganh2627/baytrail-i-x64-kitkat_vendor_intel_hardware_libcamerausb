@@ -64,6 +64,8 @@ ControlThread::ControlThread(int cameraId) :
     ,mJpegEncoderFormat(V4L2_PIX_FMT_YUV420)//V4L2_PIX_FMT_NV12
     ,postviewBuffer(NULL)
     ,interBuff(NULL)
+    ,driverWidth(640)
+    ,driverHeight(480)
     ,mJpegFromDriver(false)
     ,mRestartdevice(false)
 {
@@ -799,6 +801,8 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     status_t status = NO_ERROR;
     int previewWidth = 0;
     int previewHeight = 0;
+    int pictureWidth = 0;
+    int pictureHeight = 0;
     int previewFormat;
     int videoWidth = 0;
     int videoHeight = 0;
@@ -826,7 +830,15 @@ status_t ControlThread::startPreviewCore(bool videoMode)
 
 
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
-    mDriver->setPreviewFrameSize(previewWidth, previewHeight);
+    mParameters.getPictureSize(&pictureWidth, &pictureHeight);
+    if(previewWidth > pictureWidth) {
+        driverWidth = previewWidth;
+        driverHeight = previewHeight;
+    } else {
+        driverWidth = pictureWidth;
+        driverHeight = pictureHeight;
+    }
+    mDriver->setPreviewFrameSize(driverWidth, driverHeight);
     mPreviewThread->setPreviewConfig(previewWidth, previewHeight, mDecoderedFormat, previewFormat);
     // set video frame config
     if (videoMode) {
@@ -859,7 +871,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     all_targets = new RenderTarget*[mNumJpegdecBuffers];
     mJpegdecBufferPool = new CameraBuffer [mNumJpegdecBuffers];
     for (int i = 0; i < mNumJpegdecBuffers; i++) {
-        status = mGraphicBufAlloc->allocate(&mJpegdecBufferPool[i], previewWidth, previewHeight, mDecoderedFormat);
+        status = mGraphicBufAlloc->allocate(&mJpegdecBufferPool[i], driverWidth, driverHeight, mDecoderedFormat);
         if (status != NO_ERROR)
         {
             ALOGE("allocateGrallocBuffer failed!");
@@ -1026,12 +1038,6 @@ status_t ControlThread::stopCapture()
         return status;
     }
 
-    returnCaptureBuffer(yuvBuffer);
-    if (interBuff != NULL) {
-        returnCaptureBuffer(interBuff);
-    }
-    returnCaptureBuffer(postviewBuffer);
-
     status = mDriver->stop();
     if (status != NO_ERROR) {
         ALOGE("Error stopping driver!");
@@ -1160,6 +1166,8 @@ status_t ControlThread::handleMessageTakePicture()
     State origState = mState;
     int width = 0;
     int height = 0;
+    int previewWidth = 0;
+    int previewHeight = 0;
 
     if (origState != STATE_PREVIEW_STILL && origState != STATE_RECORDING && origState != STATE_PREVIEW_VIDEO) {
         ALOGE("we only support snapshot in still preview and recording");
@@ -1169,15 +1177,16 @@ status_t ControlThread::handleMessageTakePicture()
 
     // Get the current params
     mParameters.getPictureSize(&width, &height);
+    mParameters.getPreviewSize(&previewWidth, &previewHeight);
     if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
-       if(1) {
+       int newdriverWidth = width > previewWidth ? width: previewWidth;
+       if(newdriverWidth != driverWidth) {
             status = stopPreviewCore();
             mRestartdevice = true;
             if (status != NO_ERROR) {
                 ALOGE("Error stopping preview!");
                 return status;
             }
-            mState = STATE_CAPTURE;
        }
     }
     if (origState == STATE_RECORDING) {
@@ -1209,7 +1218,7 @@ status_t ControlThread::handleMessageTakePicture()
     config.picture.format = mJpegEncoderFormat;
 
     config.picture.quality = mParameters.getInt(CameraParameters::KEY_JPEG_QUALITY);
-    if(config.picture.quality >= 90) {
+    if((config.picture.quality >= 90) && (width >= driverWidth)) {
           mJpegFromDriver = true;
           config.jpegfromdriver = true;
     } else {
@@ -1228,7 +1237,7 @@ status_t ControlThread::handleMessageTakePicture()
 
     mPictureThread->setConfig(&config);
     if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
-        if(1) {
+        if(mRestartdevice) {
             // Configure and start the driver
            mDriver->setSnapshotFrameSize(width, height);
            yuvBuffer = new CameraBuffer;
@@ -1318,6 +1327,7 @@ status_t ControlThread::handleMessageTakePicture()
                  }
             }
         }
+        mState = STATE_CAPTURE;
 
     } else {
         // If we are in video mode we simply use the recording buffer for picture encoding
@@ -1435,7 +1445,7 @@ status_t ControlThread::handleMessageReturnBuffer(MessageReturnBuffer *msg)
     BufferType type = buff->mType;
     LOG1("return buffer id = %d, type=%d,buff=%p", buff->getID(), type,buff);
 
-    if ((type != BUFFER_TYPE_INTERMEDIATE)&&(type != BUFFER_TYPE_JPEGDEC) && (type != BUFFER_TYPE_VIDEOENCODER) && (type != BUFFER_TYPE_PREVIEW) //&&(type != BUFFER_TYPE_CAP)
+    if ((type != BUFFER_TYPE_INTERMEDIATE)&&(type != BUFFER_TYPE_JPEGDEC) &&(type != BUFFER_TYPE_VIDEOENCODER)&&(type != BUFFER_TYPE_PREVIEW) &&(type != BUFFER_TYPE_CAP)
             && !(mDriver->isBufferValid(buff)))
     {
         ALOGE("wrong buffer type, can't be returned");
@@ -1462,6 +1472,9 @@ status_t ControlThread::handleMessageReturnBuffer(MessageReturnBuffer *msg)
         break;
     case BUFFER_TYPE_VIDEOENCODER:
         status = returnVPPNV12Buffer(buff);
+        break;
+    case BUFFER_TYPE_CAP:
+        status = returnCaptureBuffer(buff);
         break;
     default:
         ALOGE("invalid buffer type for buff %d", buff->getID());
@@ -2575,7 +2588,10 @@ status_t ControlThread::dequeuePreview()
     }
     driverbuff->setOwner(this);
     driverbuff->mType = BUFFER_TYPE_PREVIEW;
-    returnBuffer(driverbuff);
+    if(mState != STATE_CAPTURE || !mJpegFromDriver)
+    {
+        returnBuffer(driverbuff);
+    }
     if (status == NO_ERROR) {
         yuvbuff->setOwner(this);
         CameraBuffer *convBuff = getFreeBuffer();
@@ -2587,6 +2603,22 @@ status_t ControlThread::dequeuePreview()
             return status;
         } else {
             status = mPipeThread->preview(yuvbuff, convBuff,mCallbackMidBuff);
+            if(mState == STATE_CAPTURE) {
+                if(mJpegFromDriver) {
+                   if (mThumbSupported && postviewBuffer != NULL) {
+                       status = mPictureThread->encode(driverbuff, yuvbuff, postviewBuffer);
+                   } else {
+                       status = mPictureThread->encode(driverbuff, yuvbuff);
+                   }
+                } else {
+                   if (mThumbSupported && postviewBuffer != NULL) {
+                       status = mPictureThread->encode(yuvbuff,interBuff, postviewBuffer);
+                   } else {
+                       status = mPictureThread->encode(yuvbuff,interBuff);
+                   }
+                }
+                mState = STATE_PREVIEW_STILL;
+            }
         }
     } else {
         ALOGE("Error gettting preview frame from driver");
@@ -2723,7 +2755,20 @@ bool ControlThread::threadLoop()
         case STATE_CAPTURE:
             LOG2("In STATE_CAPTURE...");
             // just wait until we have somthing to do
-            status = waitForAndExecuteMessage();
+            if(mRestartdevice) {
+                status = waitForAndExecuteMessage();
+                mRestartdevice = false;
+                break;
+            }
+            if (!mMessageQueue.isEmpty()) {
+                status = waitForAndExecuteMessage();
+            } else {
+                // make sure driver has data before we ask for some
+                if (mDriver->dataAvailable())
+                    status = dequeuePreview();
+                else
+                    status = waitForAndExecuteMessage();
+            }
             break;
         default:
             break;

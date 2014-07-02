@@ -128,11 +128,11 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     gcamBuff->mStride = pGrallocHandle->pitch;
     if((HalFormat == HAL_PIXEL_FORMAT_YV12) || (HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL))
     {
-         gcamBuff->mGraBuffSize = gcamBuff->mStride * height *3/2;
+         gcamBuff->mGraBuffSize = pGrallocHandle->pitch * height *3/2;
     }
     else if((HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL) ||(HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_I))
     {
-        gcamBuff->mGraBuffSize = gcamBuff->mStride * height *3;
+        gcamBuff->mGraBuffSize = pGrallocHandle->pitch * height *3;
     }
     gcamBuff->mGrhandle = handle;
 

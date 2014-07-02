@@ -304,15 +304,9 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
          alignThumbnailHeight = mConfig.thumbnail.height;
 
          mVaConvertor->VPPBitBlit(msg->interBuf->GetRenderTargetHandle(),msg->postviewBuf->GetRenderTargetHandle());
-         status = msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
-         if (status != NO_ERROR) {
-             LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
-         }
+         msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
          if(!mConfig.jpegfromdriver) {
-             status = msg->interBuf->LockGrallocData(snapshotbuff,&size);
-             if (status != NO_ERROR) {
-                 LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
-             }
+             msg->interBuf->LockGrallocData(snapshotbuff,&size);
              mainbuf = snapshotbuff[0];
              mainSize = size;
          } else {
@@ -333,10 +327,7 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
     else
     {
          if(!mConfig.jpegfromdriver) {
-            status = msg->interBuf->LockGrallocData(snapshotbuff,&size);
-            if (status != NO_ERROR) {
-                LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
-            }
+            msg->interBuf->LockGrallocData(snapshotbuff,&size);
             mainbuf = snapshotbuff[0];
             mainSize = size;
          } else {
@@ -354,9 +345,12 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
          }
     }
     // When the encoding is done, send back the buffers to camera
-    if (mConfig.jpegfromdriver && msg->snaphotBuf != NULL) {
+    if (msg->snaphotBuf != NULL)
         msg->snaphotBuf->decrementProcessor();
-    }
+    if (msg->interBuf!= NULL)
+        msg->interBuf->decrementProcessor();
+    if (msg->postviewBuf!= NULL)
+        msg->postviewBuf->decrementProcessor();
 
     LOG1("Releasing jpegBuf @%p", jpegBuf.getData());
     jpegBuf.releaseMemory();
@@ -368,6 +362,9 @@ status_t PictureThread::handleMessageFlush()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
+
+    if(mVaConvertor)
+       mVaConvertor->stop();
 
     mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;
