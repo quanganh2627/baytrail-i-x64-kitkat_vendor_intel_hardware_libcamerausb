@@ -174,14 +174,20 @@ exit:
         {
            //currently, vpp don't support colorconvert from yuv422h to nv21, so convert to yv12 with vpp, and then convert from yv12 to NV21
            mVaConvertor->VPPBitBlit(msg->inputBuff->GetRenderTargetHandle(),msg->midConvert->GetRenderTargetHandle());
-           msg->midConvert->LockGrallocData((void**)&srcaddr,&size);
+           status = msg->midConvert->LockGrallocData((void**)&srcaddr,&size);
+           if (status != NO_ERROR) {
+              LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+           }
            colorConvertwithStride(V4L2_PIX_FMT_YUV420,mOutputFormat,msg->midConvert->GetGraStride(),mPreviewWidth,alignHeight,mPreviewHeight,srcaddr[0],msg->outputBuff->getData());
            msg->midConvert->UnLockGrallocData();
         }
         else
         {
            mVaConvertor->VPPBitBlit(msg->inputBuff->GetRenderTargetHandle(),msg->midConvert->GetRenderTargetHandle());
-           msg->midConvert->LockGrallocData((void**)&srcaddr,&size);
+           status  = msg->midConvert->LockGrallocData((void**)&srcaddr,&size);
+           if (status != NO_ERROR) {
+               LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+           }
            colorConvertwithStride(mOutputFormat,mOutputFormat,msg->midConvert->GetGraStride(),mPreviewWidth,alignHeight,mPreviewHeight,srcaddr[0],msg->outputBuff->getData());
            msg->midConvert->UnLockGrallocData();
         }

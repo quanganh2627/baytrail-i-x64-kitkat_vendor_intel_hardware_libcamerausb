@@ -304,9 +304,15 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
          alignThumbnailHeight = mConfig.thumbnail.height;
 
          mVaConvertor->VPPBitBlit(msg->interBuf->GetRenderTargetHandle(),msg->postviewBuf->GetRenderTargetHandle());
-         msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
+         status = msg->postviewBuf->LockGrallocData(thumbnailbuff,&size);
+         if (status != NO_ERROR) {
+             LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+         }
          if(!mConfig.jpegfromdriver) {
-             msg->interBuf->LockGrallocData(snapshotbuff,&size);
+             status = msg->interBuf->LockGrallocData(snapshotbuff,&size);
+             if (status != NO_ERROR) {
+                 LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+             }
              mainbuf = snapshotbuff[0];
              mainSize = size;
          } else {
@@ -327,7 +333,10 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
     else
     {
          if(!mConfig.jpegfromdriver) {
-            msg->interBuf->LockGrallocData(snapshotbuff,&size);
+            status = msg->interBuf->LockGrallocData(snapshotbuff,&size);
+            if (status != NO_ERROR) {
+                LOGE("lock data failed,ret=%d, in line %d",status, __LINE__);
+            }
             mainbuf = snapshotbuff[0];
             mainSize = size;
          } else {
@@ -362,9 +371,6 @@ status_t PictureThread::handleMessageFlush()
 {
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
-
-    if(mVaConvertor)
-       mVaConvertor->stop();
 
     mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;

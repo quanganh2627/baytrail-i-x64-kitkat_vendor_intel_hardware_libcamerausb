@@ -1038,6 +1038,12 @@ status_t ControlThread::stopCapture()
         return status;
     }
 
+    returnCaptureBuffer(yuvBuffer);
+    if (interBuff != NULL) {
+        returnCaptureBuffer(interBuff);
+    }
+    returnCaptureBuffer(postviewBuffer);
+
     status = mDriver->stop();
     if (status != NO_ERROR) {
         ALOGE("Error stopping driver!");
@@ -1179,8 +1185,7 @@ status_t ControlThread::handleMessageTakePicture()
     mParameters.getPictureSize(&width, &height);
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
     if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
-       int newdriverWidth = width > previewWidth ? width: previewWidth;
-       if(newdriverWidth != driverWidth) {
+       if((width*previewHeight != previewWidth*height) || (previewWidth < width)){
             status = stopPreviewCore();
             mRestartdevice = true;
             if (status != NO_ERROR) {
