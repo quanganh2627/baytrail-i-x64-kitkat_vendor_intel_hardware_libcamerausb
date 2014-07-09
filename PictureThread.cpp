@@ -372,6 +372,9 @@ status_t PictureThread::handleMessageFlush()
     LOG1("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
 
+    if(mVaConvertor)
+       mVaConvertor->stop();
+
     mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;
 }

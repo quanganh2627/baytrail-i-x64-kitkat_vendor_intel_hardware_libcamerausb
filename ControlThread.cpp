@@ -1038,12 +1038,6 @@ status_t ControlThread::stopCapture()
         return status;
     }
 
-    returnCaptureBuffer(yuvBuffer);
-    if (interBuff != NULL) {
-        returnCaptureBuffer(interBuff);
-    }
-    returnCaptureBuffer(postviewBuffer);
-
     status = mDriver->stop();
     if (status != NO_ERROR) {
         ALOGE("Error stopping driver!");
