@@ -290,7 +290,7 @@ status_t PictureThread::handleMessageEncode(MessageEncode *msg)
     }
 
     // Encode the image
-    alignPicHeight = mConfig.picture.height;
+    alignPicHeight = msg->interBuf->GetRenderTargetHandle()->height;
     if(!mConfig.jpegfromdriver) {
         mVaConvertor->VPPBitBlit(msg->snaphotBuf->GetRenderTargetHandle(),msg->interBuf->GetRenderTargetHandle());
     }
