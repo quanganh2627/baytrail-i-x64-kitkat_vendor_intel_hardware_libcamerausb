@@ -89,41 +89,36 @@ int JpegCompressor::encode(const InputBuffer &in, const OutputBuffer &out)
     struct jpeg_error_mgr jerr;
     JSAMPROW row_pointer[1];
 
+    mJpegSize = -1;
+
     if (in.width == 0 || in.height == 0 || in.format == 0) {
         ALOGE("Invalid input received!");
-        mJpegSize = -1;
         goto exit;
     }
     midbuf = (unsigned char*)malloc(in.width * in.height * 3/2);//yuv420
     if(midbuf == NULL)
     {
         ALOGE("alloc memory failed");
-        mJpegSize = -1;
         goto exit;
     }
+
     {
         // Choose Skia
         LOG1("Choosing SWJpegEncoder for JPEG encoding");
         if (mSWEncoder == NULL) {
             ALOGE("Skia JpegEncoder not created, cannot encode to JPEG!");
-            mJpegSize = -1;
             goto exit;
         }
-        RepaddingYV12(out.width,out.height,in.stride,out.width,in.alignHeight,in.buf, out.buf,0);
-        memcpy(midbuf,out.buf,out.width * out.height *3/2);
+        RepaddingYV12(out.width,out.height,in.stride,out.width,in.alignHeight,in.buf, midbuf,0);
+
         mid.buf = midbuf;
         mid.format = in.format;
         mid.height = in.height;
         mid.size = in.size;
         mid.stride = in.stride;
         mid.width = in.width;
-        if (swEncode(mid, out) < 0)
-        goto exit;
-        if(midbuf != NULL)
-        {
-            free(midbuf);
-        }
-        return mJpegSize;
+        //mJpegSize is updated
+        swEncode(mid, out);
     }
 exit:
     if(midbuf != NULL)
@@ -132,5 +127,4 @@ exit:
     }
     return mJpegSize;
 }
-
 }
