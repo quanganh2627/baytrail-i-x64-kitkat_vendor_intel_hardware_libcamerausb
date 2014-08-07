@@ -828,16 +828,12 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     previewFormat = V4L2Format(mParameters.getPreviewFormat());
     videoFormat = V4L2Format(mParameters.get(CameraParameters::KEY_VIDEO_FRAME_FORMAT));
 
-
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
     mParameters.getPictureSize(&pictureWidth, &pictureHeight);
-    if(previewWidth > pictureWidth) {
-        driverWidth = previewWidth;
-        driverHeight = previewHeight;
-    } else {
-        driverWidth = pictureWidth;
-        driverHeight = pictureHeight;
-    }
+
+    driverWidth = previewWidth;
+    driverHeight = previewHeight;
+
     mDriver->setPreviewFrameSize(driverWidth, driverHeight);
     mPreviewThread->setPreviewConfig(previewWidth, previewHeight, mDecoderedFormat, previewFormat);
     // set video frame config

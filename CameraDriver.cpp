@@ -142,8 +142,8 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO, mBestVidSize.string());
     params->setPreviewFrameRate(30);
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FRAME_RATES,"15,30"); // TODO: consider which FPS to support
-    params->set(CameraParameters::KEY_PREVIEW_FPS_RANGE,"30000,30000");
-    params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FPS_RANGE,"(30000,30000)");
+    params->set(CameraParameters::KEY_PREVIEW_FPS_RANGE,"7500,30000");
+    params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FPS_RANGE,"(7500,30000)");
     params->set(CameraParameters::KEY_PREVIEW_FORMAT, "yuv420sp");
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FORMATS, "yuv420p,yuv420sp");
 
@@ -967,6 +967,10 @@ void CameraDriver::detectDeviceResolutions()
                     || fi.type != V4L2_FRMIVAL_TYPE_DISCRETE)
                     break;
                 double hz = fi.discrete.denominator / (double)fi.discrete.numerator;
+                if (pixfmt == V4L2_PIX_FMT_MJPEG){
+                    mJpegModes.insert(sz);
+                    LOG2("@%s, line:%d, mJpegModes insert sz:%s", __FUNCTION__, __LINE__, sz.string());
+                }
                 if (hz >= MIN_VIDEO_FPS) {
                     if(pixfmt == V4L2_PIX_FMT_MJPEG) {
                         // For MJPEG modes, check that we don't
@@ -976,8 +980,6 @@ void CameraDriver::detectDeviceResolutions()
 //                           || !JpegDecoder(w, h).valid()) {
                             continue;
                         }
-                        mJpegModes.insert(sz);
-                        LOG2("@%s, line:%d, mJpegModes insert sz:%s", __FUNCTION__, __LINE__, sz.string());
                     } else
                         continue; // this can let the yuyv output disabled
 
