@@ -408,6 +408,8 @@ status_t CameraDriver::startRecording(RenderTarget **all_targets,int targetBufNu
         goto exitClose;
     }
 
+    setWbAttribute();
+
     ret = startDevice();
     if (ret < 0) {
         ALOGE("Start device failed!");
@@ -1860,10 +1862,71 @@ status_t CameraDriver::setExposureModeBrightness(float expNorm, int expBias)
     return BAD_VALUE;
 }
 
+status_t CameraDriver::setWbAttribute()
+{
+    LOG2("@%s", __FUNCTION__);
+    int ret = NO_ERROR;
+    int color_tempreture = 0;
+    int fd = mCameraSensor[mCameraId]->fd;
+
+    if (fd < 0) {
+        ALOGE("Error fd(%d)", fd);
+        return INVALID_OPERATION;
+    }
+
+    switch (mWBMode) {
+    case WHITE_BALANCE_AUTO:
+    {
+        break;
+    }
+    case WHITE_BALANCE_INCANDESCENT:
+    {
+        color_tempreture = 2800;
+        break;
+    }
+    case WHITE_BALANCE_FLUORESCENT:
+    {
+        color_tempreture = 5000;
+        break;
+    }
+    case WHITE_BALANCE_DAYLIGHT:
+    {
+        color_tempreture = 6000;
+        break;
+    }
+    case WHITE_BALANCE_CLOUDY_DAYLIGHT:
+    {
+        color_tempreture = 6500;
+        break;
+    }
+    default:
+    {
+        ALOGE("Unsupported white balance mode");
+        ret = -1;
+        break;
+    }
+    }
+
+    if (WHITE_BALANCE_AUTO == mWBMode) {
+      if (set_attribute(fd, V4L2_CID_AUTO_WHITE_BALANCE, 1 ,"White Balance Temperature, Auto" ) !=0) {
+          ALOGE("Error in setting white balance mode");
+          ret = INVALID_OPERATION;
+      }
+    } else if (color_tempreture > 0) {
+        if (set_attribute(fd, V4L2_CID_AUTO_WHITE_BALANCE, 0 ,"White Balance Temperature, Auto" ) !=0) {
+            ALOGE("Error in setting white balance mode");
+            ret = INVALID_OPERATION;
+        } else if(set_attribute(fd, V4L2_CID_WHITE_BALANCE_TEMPERATURE, color_tempreture,"White Balance Temperature" ) !=0) {
+            ALOGE("Error in setting white balance mode");
+            ret = INVALID_OPERATION;
+        }
+    }
+    return ret;
+}
+
 status_t CameraDriver::setWhiteBalanceMode(WhiteBalanceMode wbMode)
 {
     LOG1("@%s", __FUNCTION__);
-    int color_tempreture = 0;
     int ret = NO_ERROR;
     int fd = mCameraSensor[mCameraId]->fd;
     mWBMode = WHITE_BALANCE_AUTO;
@@ -1876,52 +1939,14 @@ status_t CameraDriver::setWhiteBalanceMode(WhiteBalanceMode wbMode)
     if ((wbMode != WHITE_BALANCE_AUTO) && (!mSupportedControls.whiteBalanceTemperature)) {
         ALOGE("invalid white balance");
         return BAD_VALUE;
-    } else if ( wbMode == WHITE_BALANCE_AUTO) {
-        if(set_attribute(fd, V4L2_CID_AUTO_WHITE_BALANCE, 1 ,"White Balance Temperature, Auto" ) !=0) {
-            ALOGE("Error in setting white balance mode");
-            return INVALID_OPERATION;
-        }
     } else {
         mWBMode = wbMode;
-        switch (wbMode) {
-        case WHITE_BALANCE_INCANDESCENT:
-        {
-            color_tempreture = 2800;
-            break;
-        }
-        case WHITE_BALANCE_FLUORESCENT:
-        {
-            color_tempreture = 5000;
-            break;
-        }
-        case WHITE_BALANCE_DAYLIGHT:
-        {
-            color_tempreture = 6000;
-            break;
-        }
-        case WHITE_BALANCE_CLOUDY_DAYLIGHT:
-        {
-            color_tempreture = 6500;
-            break;
-        }
-        default:
-        {
-            ALOGE("Unsupported white balance mode");
-            ret = -1;
-            break;
-        }
-        }
-        if (color_tempreture > 0) {
-           if(set_attribute(fd, V4L2_CID_AUTO_WHITE_BALANCE, 0 ,"White Balance Temperature, Auto" ) !=0) {
-               ALOGE("Error in setting white balance mode");
-           }
-        if(set_attribute(fd, V4L2_CID_WHITE_BALANCE_TEMPERATURE, color_tempreture ,"White Balance Temperature" ) !=0) {
-               ALOGE("Error in setting white balance mode");
-           }
-        }
+    }
+    if (fd > 0) {
+        ret = setWbAttribute();
     }
 
-    return NO_ERROR;;
+    return ret;;
 }
 
 status_t CameraDriver::setAeLock(bool lock)

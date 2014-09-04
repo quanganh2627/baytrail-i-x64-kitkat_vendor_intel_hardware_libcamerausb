@@ -187,6 +187,7 @@ public:
     status_t setAeLock(bool lock);
     status_t setAwbLock(bool lock);
     status_t setMeteringAreas(CameraWindow *windows, int numWindows);
+    status_t setWbAttribute(void);
     void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 
 // private types
