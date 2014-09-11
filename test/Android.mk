@@ -22,6 +22,7 @@ c_includes := \
     $(call include-path-for, frameworks-base)/camera \
     $(call include-path-for, libhardware)/hardware \
     $(call include-path-for, system-core) \
+    system/media/camera/include
 
 $(foreach file,$(test_src_files), \
     $(eval include $(CLEAR_VARS)) \

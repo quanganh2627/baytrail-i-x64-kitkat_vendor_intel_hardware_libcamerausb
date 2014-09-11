@@ -44,8 +44,9 @@ LOCAL_C_INCLUDES += \
 	$(TARGET_OUT_HEADERS)/libmix_videoencoder \
         $(TARGET_OUT_HEADERS)/libva \
         $(TARGET_OUT_HEADERS)/libmix_videovpp \
-        $(TARGET_OUT_HEADERS)/libjpegdec \
+        $(TARGET_OUT_HEADERS)/libmix_imagedecoder \
 	bionic \
+	system/media/camera/include \
 
 LOCAL_SHARED_LIBRARIES := \
 	libcamera_client \
@@ -62,7 +63,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libva-android \
 	libva \
         libmix_videovpp \
-        libjpegdec \
+        libmix_imagedecoder \
         libhardware \
         libjpeg
 
