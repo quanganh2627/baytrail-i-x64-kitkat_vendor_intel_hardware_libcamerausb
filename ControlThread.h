@@ -100,6 +100,8 @@ public:
     // return recording frame to driver (asynchronous)
     status_t releaseRecordingFrame(void *buff);
 
+    status_t getStatus();
+
     // TODO: need methods to configure control thread
     // TODO: decide if configuration method should send a message
 
@@ -217,6 +219,7 @@ private:
 private:
 
     void initDefaultParams();
+
 
     // state machine helper functions
     status_t restartPreview(bool videoMode);
@@ -405,6 +408,8 @@ private:
     int driverHeight;//the actual height from camera module
     bool mJpegFromDriver;  //whether get jpeg file from driver for jpeg encoder
     bool mRestartdevice;  //whether need to restart the device when picture size changed
+
+    status_t mStatus;
 
 }; // class ControlThread
 

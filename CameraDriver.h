@@ -189,6 +189,8 @@ public:
     status_t setMeteringAreas(CameraWindow *windows, int numWindows);
     void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 
+    status_t getStatus();
+
 // private types
 private:
 
@@ -310,6 +312,7 @@ private:
     int set_zoom (int fd, int zoom);
     status_t setFrameInfo(FrameInfo *fi, int width, int height);
 
+
     // private members
 private:
 
@@ -352,6 +355,8 @@ private:
 
     WhiteBalanceMode mWBMode;
     int mExpBias;
+
+    status_t mStatus;
 }; // class CameraDriver
 
 }; // namespace android
