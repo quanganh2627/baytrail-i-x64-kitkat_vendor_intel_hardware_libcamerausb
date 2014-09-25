@@ -109,6 +109,13 @@ public:
         WHITE_BALANCE_TWILIGHT,
         WHITE_BALANCE_SHADE,
     };
+
+    enum PowerLineFrequency {
+        DISABLE,
+        FREQUENCY_50HZ,
+        FREQUENCY_60HZ,
+    };
+
     enum GraType {
         YUV422H_FOR_JPEG,
         NV12_FOR_VIDEO,
@@ -310,6 +317,7 @@ private:
                                const int value, const char *name);
     int set_zoom (int fd, int zoom);
     status_t setFrameInfo(FrameInfo *fi, int width, int height);
+    status_t setPowerLineFrequency(PowerLineFrequency frequency);
 
     // private members
 private:
