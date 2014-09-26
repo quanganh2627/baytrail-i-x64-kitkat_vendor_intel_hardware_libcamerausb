@@ -1178,8 +1178,7 @@ status_t ControlThread::handleMessageTakePicture()
     mParameters.getPictureSize(&width, &height);
     mParameters.getPreviewSize(&previewWidth, &previewHeight);
     if (origState == STATE_PREVIEW_STILL || origState == STATE_PREVIEW_VIDEO) {
-       int newdriverWidth = width > previewWidth ? width: previewWidth;
-       if(newdriverWidth != driverWidth) {
+       if((width > previewWidth) || (height * previewWidth != width * previewHeight)) {
             status = stopPreviewCore();
             mRestartdevice = true;
             if (status != NO_ERROR) {
