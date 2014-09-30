@@ -39,7 +39,7 @@
 
 #include <system/graphics.h>
 #include <unistd.h>
-#include <hardware/gralloc.h>
+//#include <hardware/gralloc.h>
 
 #include <intel_bufmgr.h>
 #include <i915_drm.h>
