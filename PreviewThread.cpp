@@ -148,7 +148,7 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
                 status = NO_MEMORY;
                 goto exit;
             }
-            LOG1("Preview Color Conversion to YUY2, stride: %d height: %d", stride, mPreviewHeight);
+            LOG2("Preview Color Conversion to YUY2, stride: %d height: %d", stride, mPreviewHeight);
             RenderTarget previewRT;
             memset((void*)&previewRT,0,sizeof(RenderTarget));
             mVaConvertor->ConfigBuffer(&previewRT,*buf,mPreviewWidth,mPreviewHeight,mGFXHALPixelFormat);

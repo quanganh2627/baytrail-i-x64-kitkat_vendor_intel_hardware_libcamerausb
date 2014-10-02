@@ -315,7 +315,7 @@ status_t VAConvertor::VPPColorConverter(buffer_handle_t input_handle,buffer_hand
 
 status_t VAConvertor::VPPBitBlit(RenderTarget *in, RenderTarget *out)
 {
-    LOG1("@%s", __FUNCTION__);
+    LOG2("@%s", __FUNCTION__);
     return mVA->perform(*in, *out, mVPP, false);
 }
 
@@ -327,7 +327,7 @@ status_t VAConvertor::ConfigBuffer(RenderTarget *rt, buffer_handle_t pBufHandle,
 {
     struct mfx_gralloc_drm_handle_t *pGrallocHandle = (struct mfx_gralloc_drm_handle_t *) pBufHandle;
 
-    LOG1("@%s %dx%d format:%x current count:%d", __FUNCTION__, width, height, format, mIIDKey);
+    LOG2("@%s %dx%d format:%x current count:%d", __FUNCTION__, width, height, format, mIIDKey);
 
     if (rt == NULL) {
         LOGE("Fail to allocate RenderTarget");

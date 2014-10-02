@@ -850,7 +850,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
             return status;
         }
         delete jpginfo;
-        LOG1("jpegdecoder over");
+        LOG2("jpegdecoder over");
         /*
         //the following code is used for dump image after jpegdec with mapfunction in libjpegdec
         uint8_t *data;
@@ -1709,7 +1709,7 @@ status_t CameraDriver::autoFocus()
     control.value = 1;
 
     if (-1 == ioctl (fd, VIDIOC_S_CTRL, &control)) {
-        perror ("Auto Focus Failure in Camera Driver");
+        ALOGE ("Auto Focus Failure in Camera Driver");
         return UNKNOWN_ERROR;
     }
     LOG1("Auto Focus ..............Done");
@@ -1728,7 +1728,7 @@ status_t CameraDriver::cancelAutoFocus()
     control.value = 0;
 
     if (-1 == ioctl (fd, VIDIOC_S_CTRL, &control)) {
-        perror ("Cancel Auto Focus Failure in Camera Driver");
+        ALOGE ("Cancel Auto Focus Failure in Camera Driver");
         return UNKNOWN_ERROR;
     }
     LOG1("Cancel Auto Focus ..............Done");
