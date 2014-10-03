@@ -273,6 +273,10 @@ void EXIFFields::setCommonFields()
 
     // the TIFF default is 1 (centered)
     mExif.ycbcr_positioning = EXIF_DEF_YCBCR_POSITIONING;
+
+    // set default subsec time to 1000
+    memcpy((char *)mExif.subsec_time, "1000", sizeof(mExif.subsec_time));
+
 }
 
 // TODO: This method currently sets data uknown to the platform.

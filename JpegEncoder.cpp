@@ -134,8 +134,8 @@ jpg_return_status JpegEncoder::makeExif (unsigned char *exifOut,
     memcpy(pCur, &tmp , NUM_SIZE);
     pCur += NUM_SIZE;
 
-    LongerTagOffest += NUM_SIZE + NUM_0TH_IFD_EXIF*IFD_SIZE + OFFSET_SIZE;
-    if (exifInfo->exposure_time.den) {
+    LongerTagOffest += NUM_SIZE + tmp * IFD_SIZE + OFFSET_SIZE;
+    if (exifInfo->exposure_time.den != 0) {
         writeExifIfd(&pCur, EXIF_TAG_EXPOSURE_TIME, EXIF_TYPE_RATIONAL,
                      1, &exifInfo->exposure_time, &LongerTagOffest, pIfdStart);
     }
@@ -175,15 +175,23 @@ jpg_return_status JpegEncoder::makeExif (unsigned char *exifOut,
                  1, exifInfo->flash);
     writeExifIfd(&pCur, EXIF_TAG_FOCAL_LENGTH, EXIF_TYPE_RATIONAL,
                  1, &exifInfo->focal_length, &LongerTagOffest, pIfdStart);
-//    char code[8] = { 0x00, 0x00, 0x00, 0x49, 0x49, 0x43, 0x53, 0x41 };
+
     char code[8] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x00, 0x00, 0x00 };
-    int commentsLen = strlen((char *)exifInfo->user_comment) + 1;
+    size_t commentsLen = strlen((char *)exifInfo->user_comment) + 1;
     if(commentsLen > (sizeof(exifInfo->user_comment) - sizeof(code)))
         return JPG_FAIL;
     memmove(exifInfo->user_comment + sizeof(code), exifInfo->user_comment, commentsLen);
     memcpy(exifInfo->user_comment, code, sizeof(code));
     writeExifIfd(&pCur, EXIF_TAG_USER_COMMENT, EXIF_TYPE_UNDEFINED,
                  commentsLen + sizeof(code), exifInfo->user_comment, &LongerTagOffest, pIfdStart);
+
+    writeExifIfd(&pCur, EXIF_TAG_SUBSEC_TIME, EXIF_TYPE_ASCII,
+                 strlen((char *)exifInfo->subsec_time)+1, exifInfo->subsec_time, &LongerTagOffest, pIfdStart);
+    writeExifIfd(&pCur, EXIF_TAG_SUBSEC_TIME_ORIG, EXIF_TYPE_ASCII,
+                 strlen((char *)exifInfo->subsec_time)+1, exifInfo->subsec_time, &LongerTagOffest, pIfdStart);
+    writeExifIfd(&pCur, EXIF_TAG_SUBSEC_TIME_DIG, EXIF_TYPE_ASCII,
+                 strlen((char *)exifInfo->subsec_time)+1, exifInfo->subsec_time, &LongerTagOffest, pIfdStart);
+
     writeExifIfd(&pCur, EXIF_TAG_FLASH_PIX_VERSION, EXIF_TYPE_UNDEFINED,
                  4, exifInfo->flashpix_version);
     writeExifIfd(&pCur, EXIF_TAG_COLOR_SPACE, EXIF_TYPE_SHORT,

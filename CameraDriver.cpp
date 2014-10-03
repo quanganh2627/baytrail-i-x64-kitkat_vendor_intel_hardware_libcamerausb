@@ -45,7 +45,7 @@
 // denominator and blow up with a FPE.
 // Zero will disable the exposure time in the exif
 #define DEFAULT_EXPOSURE_TIME 0
-
+#define DEFAULT_ISO_SPEED     100
 
 namespace android {
 
@@ -1214,8 +1214,8 @@ status_t CameraDriver::getBrightness(float *brightness)
 
 status_t CameraDriver::getIsoSpeed(int *isoSpeed)
 {
-    // TODO: fill these with valid values
-    *isoSpeed = 0;
+    // TODO: fill with valid value, 0 is not accepted by testJpegExif
+    *isoSpeed = DEFAULT_ISO_SPEED;
     return NO_ERROR;
 }
 

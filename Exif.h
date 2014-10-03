@@ -32,8 +32,8 @@
 #define OFFSET_SIZE                 4
 
 #define NUM_0TH_IFD_TIFF            14
-#define NUM_0TH_IFD_EXIF            28
-#define NUM_0TH_IFD_GPS             10
+#define NUM_0TH_IFD_EXIF            31
+#define NUM_0TH_IFD_GPS             12
 #define NUM_1TH_IFD_TIFF            9
 
 /* Type */
@@ -84,6 +84,9 @@
 #define EXIF_TAG_FLASH                          0x9209
 #define EXIF_TAG_FOCAL_LENGTH                   0x920A
 #define EXIF_TAG_USER_COMMENT                   0x9286
+#define EXIF_TAG_SUBSEC_TIME                    0x9290
+#define EXIF_TAG_SUBSEC_TIME_ORIG               0x9291
+#define EXIF_TAG_SUBSEC_TIME_DIG                0x9292
 #define EXIF_TAG_FLASH_PIX_VERSION              0xA000
 #define EXIF_TAG_COLOR_SPACE                    0xA001
 #define EXIF_TAG_PIXEL_X_DIMENSION              0xA002
@@ -103,6 +106,8 @@
 #define EXIF_TAG_GPS_ALTITUDE_REF               0x0005
 #define EXIF_TAG_GPS_ALTITUDE                   0x0006
 #define EXIF_TAG_GPS_TIMESTAMP                  0x0007
+#define EXIF_TAG_GPS_IMG_DIRECTION_REF          0x0010
+#define EXIF_TAG_GPS_IMG_DIRECTION              0x0011
 #define EXIF_TAG_GPS_PROCESSING_METHOD          0x001B
 #define EXIF_TAG_GPS_DATESTAMP                  0x001D
 
@@ -162,11 +167,11 @@ typedef enum {
 
 /* Values */
 #define EXIF_DEF_IMAGE_DESCRIPTION          "Intel Jpeg"
-#define EXIF_DEF_MAKER          "Intel"
-#define EXIF_DEF_MODEL          "Intel-Atom"
-#define EXIF_DEF_SOFTWARE       "Android ICS"
+#define EXIF_DEF_MAKER          "intel"
+#define EXIF_DEF_MODEL          "byt_m_crb"
+#define EXIF_DEF_SOFTWARE       "Android Lollipop"
 #define EXIF_DEF_EXIF_VERSION   "0220"
-#define EXIF_DEF_USERCOMMENTS   "Intel Atom Medfield, Beijing CI Team developped"
+#define EXIF_DEF_USERCOMMENTS   ""
 #define EXIF_DEF_FLASHPIXVERSION "0100" /* Flashpix Format Version 1.0 */
 
 #define EXIF_DEF_YCBCR_POSITIONING  1   /* centered */
@@ -209,6 +214,7 @@ typedef struct {
     unsigned char software[32];
     unsigned char exif_version[4];
     unsigned char date_time[20];
+    uint8_t subsec_time[8];
     unsigned char user_comment[150];
 
     uint32_t width;
