@@ -353,6 +353,12 @@ static int CAMERA_OpenCameraHardware(const hw_module_t* module, const char* name
 
     camera_instance.camera_id = atoi(name);
     camera_instance.control_thread = new ControlThread(camera_instance.camera_id);
+
+    if (camera_instance.control_thread->getStatus() != NO_ERROR) {
+	ALOGE("Camera Driver initialization failed!");
+	return NO_INIT;
+    }
+
     if (camera_instance.control_thread == NULL) {
         ALOGE("Memory allocation error!");
         return NO_MEMORY;

@@ -197,6 +197,8 @@ public:
     status_t setWbAttribute(void);
     void setCallbacks(sp<Callbacks> &callbacks) { mCallbacks = callbacks; }
 
+    status_t getStatus();
+
 // private types
 private:
 
@@ -319,6 +321,7 @@ private:
     status_t setFrameInfo(FrameInfo *fi, int width, int height);
     status_t setPowerLineFrequency(PowerLineFrequency frequency);
 
+
     // private members
 private:
 
@@ -361,6 +364,8 @@ private:
 
     WhiteBalanceMode mWBMode;
     int mExpBias;
+
+    status_t mStatus;
 }; // class CameraDriver
 
 }; // namespace android

@@ -73,6 +73,12 @@ ControlThread::ControlThread(int cameraId) :
 
     initDefaultParams();
 
+    if ((mStatus = mDriver->getStatus()) != NO_ERROR) {
+	delete mDriver;
+	mDriver = NULL;
+	return;
+    }
+
     mDriver->setCallbacks(mCallbacks);
     mPreviewThread->setCallbacks(mCallbacks);
     mPictureThread->setCallbacks(mCallbacks);
@@ -81,24 +87,24 @@ ControlThread::ControlThread(int cameraId) :
 
     mPipeThread->setThreads(mPreviewThread, mVideoThread);
 
-    status_t status = mPreviewThread->run();
-    if (status != NO_ERROR) {
+    mStatus = mPreviewThread->run();
+    if (mStatus != NO_ERROR) {
         ALOGE("Error starting preview thread!");
     }
-    status = mPictureThread->run();
-    if (status != NO_ERROR) {
+    mStatus = mPictureThread->run();
+    if (mStatus != NO_ERROR) {
         ALOGW("Error starting picture thread!");
     }
-    status = mVideoThread->run();
-    if (status != NO_ERROR) {
+    mStatus = mVideoThread->run();
+    if (mStatus != NO_ERROR) {
         ALOGW("Error starting video thread!");
     }
-    status = mPipeThread->run();
-    if (status != NO_ERROR) {
+    mStatus = mPipeThread->run();
+    if (mStatus != NO_ERROR) {
         ALOGW("Error starting pipe thread!");
     }
-    status = mCallbacksThread->run("CamHAL_CALLBACK");
-    if (status != NO_ERROR) {
+    mStatus = mCallbacksThread->run("CamHAL_CALLBACK");
+    if (mStatus != NO_ERROR) {
         LOGW("Error starting callbacks thread!");
     }
     m_pFaceDetector=FaceDetectorFactory::createDetector(mCallbacks.get());
@@ -142,6 +148,11 @@ ControlThread::~ControlThread()
     if (mCallbacks.get())
         mCallbacks.clear();
     delete mGraphicBufAlloc;
+}
+
+status_t ControlThread::getStatus()
+{
+   return mStatus;
 }
 
 void ControlThread::initDefaultParams()

@@ -82,17 +82,20 @@ CameraDriver::CameraDriver(int cameraId) :
 
     mWBMode = WHITE_BALANCE_AUTO;
     mExpBias = 0;
+    mStatus = NO_ERROR;
 
     memset(&mBufferPool, 0, sizeof(mBufferPool));
 
     int ret = openDevice();
     if (ret < 0) {
-        ALOGE("Failed to open device!");
+	mStatus = UNKNOWN_ERROR;
+	ALOGE("Failed to open device!");
         return;
     }
 
     int err = set_capture_mode(MODE_CAPTURE);
     if (err < 0) {
+	mStatus = UNKNOWN_ERROR;
         ALOGE("Failed to init device to capture mode");
         closeDevice();
         return;
@@ -1994,6 +1997,12 @@ status_t CameraDriver::setPowerLineFrequency(PowerLineFrequency frequency)
     LOG1("set PowerLineFrequency=%d", control.value);
 
     return NO_ERROR;
+}
+
+
+status_t CameraDriver::getStatus()
+{
+   return mStatus;
 }
 
 
