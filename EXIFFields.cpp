@@ -274,8 +274,11 @@ void EXIFFields::setCommonFields()
     // the TIFF default is 1 (centered)
     mExif.ycbcr_positioning = EXIF_DEF_YCBCR_POSITIONING;
 
+    uint8_t tmp[8] = "1000";
+
     // set default subsec time to 1000
-    memcpy((char *)mExif.subsec_time, "1000", sizeof(mExif.subsec_time));
+    memcpy((char *)mExif.subsec_time, tmp, sizeof(mExif.subsec_time));
+
 
 }
 
@@ -288,7 +291,9 @@ void EXIFFields::setUnknownFields()
     struct tm *timeinfo;
     time(&rawtime);
     timeinfo = localtime(&rawtime);
-    strftime((char *)mExif.date_time, sizeof(mExif.date_time), "%Y:%m:%d %H:%M:%S", timeinfo);
+
+    if (timeinfo)
+        strftime((char *)mExif.date_time, sizeof(mExif.date_time), "%Y:%m:%d %H:%M:%S", timeinfo);
 
     // conponents configuration. 0 means does not exist
     // 1 = Y; 2 = Cb; 3 = Cr; 4 = R; 5 = G; 6 = B; other = reserved
