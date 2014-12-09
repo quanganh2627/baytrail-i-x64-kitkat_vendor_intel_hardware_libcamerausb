@@ -564,6 +564,8 @@ int CameraDriver::deconfigureDevice()
         return -1;
     }
 
+    mJpegDecoder->deinit();
+
     delete mJpegDecoder;
     mJpegDecoder = NULL;
 

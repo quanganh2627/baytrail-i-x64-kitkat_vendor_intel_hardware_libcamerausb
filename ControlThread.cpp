@@ -545,6 +545,21 @@ void ControlThread::returnBuffer(CameraBuffer *buff)
     msg.id = MESSAGE_ID_RETURN_BUFFER;
     msg.data.returnBuffer.buff = buff;
 
+    if(buff == yuvBuffer || buff == postviewBuffer || buff == interBuff) {
+        mGraphicBufAlloc->free(buff);
+        if(buff == yuvBuffer) {
+            delete yuvBuffer;
+            yuvBuffer = NULL;
+        } else if (buff == postviewBuffer) {
+            delete postviewBuffer;
+            postviewBuffer = NULL;
+        } else if (buff == interBuff) {
+            delete interBuff;
+            interBuff = NULL;
+        }
+	return;
+    }
+
     mMessageQueue.send(&msg);
 }
 
@@ -640,31 +655,6 @@ status_t ControlThread::returnVPPNV12Buffer(CameraBuffer *buff)
             mFreeVPPOutBuffers.push_back(buff);
             return status;
         }
-    }
-    return DEAD_OBJECT;
-}
-
-status_t ControlThread::returnCaptureBuffer(CameraBuffer *buff)
-{
-    status_t status = NO_ERROR;
-
-    LOG1("@%s",__FUNCTION__);
-    if (buff == 0)
-        return status;
-
-    if(buff == yuvBuffer || buff == postviewBuffer || buff == interBuff) {
-        mGraphicBufAlloc->free(buff);
-        if(buff == yuvBuffer) {
-            delete yuvBuffer;
-            yuvBuffer = 0;
-        } else if (buff == postviewBuffer) {
-            delete postviewBuffer;
-            postviewBuffer = 0;
-        } else if (buff == interBuff) {
-            delete interBuff;
-            interBuff = 0;
-        }
-        return status;
     }
     return DEAD_OBJECT;
 }
@@ -1478,9 +1468,6 @@ status_t ControlThread::handleMessageReturnBuffer(MessageReturnBuffer *msg)
         break;
     case BUFFER_TYPE_VIDEOENCODER:
         status = returnVPPNV12Buffer(buff);
-        break;
-    case BUFFER_TYPE_CAP:
-        status = returnCaptureBuffer(buff);
         break;
     default:
         ALOGE("invalid buffer type for buff %d", buff->getID());
