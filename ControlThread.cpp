@@ -969,9 +969,17 @@ status_t ControlThread::stopPreviewCore()
             ALOGE("error flushing video buffers");
     }
 
-    // should distinguishly return BUFFER_TYPE_PREVIEW only as they are
-    // freed after mDriver->stop()
-    mMessageQueue.remove(MESSAGE_ID_RETURN_BUFFER);
+    // flush mMessageQueue
+    Vector<Message> msg;
+    Vector<Message>::iterator it;
+
+    mMessageQueue.remove(MESSAGE_ID_RETURN_BUFFER, &msg);
+    for (it = msg.begin(); it != msg.end(); it++) {
+        // free cap  return buff, drop all rest
+        if (it->data.returnBuffer.buff->mType == BUFFER_TYPE_CAP) {
+            status = returnCaptureBuffer(it->data.returnBuffer.buff);
+        }
+    }
 
     status = mDriver->stop();
     if (status == NO_ERROR) {
