@@ -2766,6 +2766,9 @@ bool ControlThread::threadLoop()
         default:
             break;
         };
+        if (status != NO_ERROR)
+            mState = STATE_STOPPED;
+
     }
 
     return false;
