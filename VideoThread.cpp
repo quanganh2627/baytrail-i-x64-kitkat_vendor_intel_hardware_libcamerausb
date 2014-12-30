@@ -84,7 +84,8 @@ status_t VideoThread::flushBuffers()
     Message msg;
     msg.id = MESSAGE_ID_FLUSH;
     mMessageQueue.remove(MESSAGE_ID_VIDEO);
-    return mMessageQueue.send(&msg, MESSAGE_ID_FLUSH);
+    // do not wait for response
+    return mMessageQueue.send(&msg);
 }
 
 status_t VideoThread::handleMessageExit()
@@ -122,7 +123,6 @@ status_t VideoThread::handleMessageFlush()
     if(mVaConvertor)
        mVaConvertor->stop();
 
-    mMessageQueue.reply(MESSAGE_ID_FLUSH, status);
     return status;
 }
 
