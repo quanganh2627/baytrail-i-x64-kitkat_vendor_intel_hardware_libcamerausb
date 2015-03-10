@@ -2726,7 +2726,7 @@ bool ControlThread::threadLoop()
                 else
                     status = waitForAndExecuteMessage();
             }
-            break;
+	    break;
 
         case STATE_PREVIEW_VIDEO:
         case STATE_RECORDING:
@@ -2766,9 +2766,11 @@ bool ControlThread::threadLoop()
         default:
             break;
         };
-        if (status != NO_ERROR)
-            mState = STATE_STOPPED;
 
+	// Error checking to handle the UNKNOWN_ERROR
+	// when unplugging the camera
+	if (status == (status_t)(UNKNOWN_ERROR))
+	    mState = STATE_STOPPED;
     }
 
     return false;
