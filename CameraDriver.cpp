@@ -1624,6 +1624,9 @@ int CameraDriver::enumerateCameras(){
     int terminated = 0;
     static struct CameraSensor *newDev;
     int claimed;
+    int fd;
+    char devName[13];
+    int realNumOfCamera = 0;
 
     LOG1("@%s", __FUNCTION__);
 
@@ -1720,7 +1723,18 @@ int CameraDriver::enumerateCameras(){
         numCameras++;
     }
 
-    return numCameras;
+    for (int i = 0; i < numCameras; i++) {
+        sprintf(devName,"/dev/video%d", i);
+        fd = open(devName, O_RDWR);
+        if (fd == -1) {
+            continue;
+        }
+        close(fd);
+        realNumOfCamera++;
+    }
+
+    return realNumOfCamera;
+
 abort:
     ALOGE("%s: Terminate camera enumeration !!", __FUNCTION__);
     cleanupCameras();
