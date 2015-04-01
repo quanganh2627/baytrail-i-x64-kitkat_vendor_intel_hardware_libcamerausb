@@ -148,7 +148,7 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES, mVidSizes.string());
     params->set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO, mBestVidSize.string());
     params->setPreviewFrameRate(30);
-    params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FRAME_RATES,"15,30"); // TODO: consider which FPS to support
+    params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FRAME_RATES,"5,10,15,20,25,30"); // TODO: consider which FPS to support
     params->set(CameraParameters::KEY_PREVIEW_FPS_RANGE,"7500,30000");
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FPS_RANGE,"(7500,30000)");
     params->set(CameraParameters::KEY_PREVIEW_FORMAT, "yuv420sp");
@@ -351,6 +351,7 @@ status_t CameraDriver::startPreview(RenderTarget **all_targets,int targetBufNum)
             MODE_PREVIEW,
             mConfig.preview.padding,
             mConfig.preview.height,
+            mConfig.preview.fps,
             NUM_DEFAULT_BUFFERS,
             all_targets,
             targetBufNum);
@@ -406,6 +407,7 @@ status_t CameraDriver::startRecording(RenderTarget **all_targets,int targetBufNu
             MODE_VIDEO,
             mConfig.preview.padding,
             mConfig.preview.height,
+            mConfig.preview.fps,
             NUM_DEFAULT_BUFFERS,
             all_targets,
             targetBufNum);
@@ -460,6 +462,7 @@ status_t CameraDriver::startCapture(RenderTarget **all_targets,int targetBufNum)
             MODE_CAPTURE,
             mConfig.snapshot.width,
             mConfig.snapshot.height,
+            mConfig.snapshot.fps,
             NUM_DEFAULT_BUFFERS,
             all_targets,
             targetBufNum);
@@ -499,7 +502,7 @@ status_t CameraDriver::stopCapture()
     return NO_ERROR;
 }
 
-int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers,RenderTarget **all_targets,int targetBufNum)
+int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int fps, int numBuffers, RenderTarget **all_targets,int targetBufNum)
 {
     LOG1("@%s", __FUNCTION__);
     int ret = 0;
@@ -541,6 +544,12 @@ int CameraDriver::configureDevice(Mode deviceMode, int w, int h, int numBuffers,
     ret = v4l2_capture_s_format(fd, w, h);
     if (ret < 0)
         return ret;
+
+    if (fps > 0) {//must be used after v4l2_capture_s_format
+        ret = v4l2_capture_s_framerate(deviceMode, fps);
+        if (ret < 0)
+            return ret;
+    }
 
     status = allocateBuffers(numBuffers, w, h, mFormat);
     if (status != NO_ERROR) {
@@ -1018,7 +1027,7 @@ void CameraDriver::detectDeviceResolutions()
                         mConfig.preview.setMax(w, h);
                         mConfig.postview.setMax(w, h);
                         mConfig.recording.setMax(w, h);
-                        setPreviewFrameSize(w, h);
+                        setPreviewFrameSize(w, h, 0);
                         setPostviewFrameSize(w, h);
                         setVideoFrameSize(w, h);
                     }
@@ -1038,7 +1047,7 @@ void CameraDriver::detectDeviceResolutions()
         mVidSizes = DEFAULT_VID_SIZE;
         mBestVidSize = DEFAULT_VID_SIZE;
         setSnapshotFrameSize(RESOLUTION_VGA_WIDTH, RESOLUTION_VGA_HEIGHT);
-        setPreviewFrameSize(RESOLUTION_VGA_WIDTH, RESOLUTION_VGA_HEIGHT);
+        setPreviewFrameSize(RESOLUTION_VGA_WIDTH, RESOLUTION_VGA_HEIGHT, 0);
         setPostviewFrameSize(RESOLUTION_VGA_WIDTH, RESOLUTION_VGA_HEIGHT);
         setVideoFrameSize(RESOLUTION_VGA_WIDTH, RESOLUTION_VGA_HEIGHT);
     }
@@ -1076,7 +1085,7 @@ status_t CameraDriver::getBrightnessMaxMinValues()
     return ret;
 }
 
-status_t CameraDriver::setFrameInfo(FrameInfo *fi, int width, int height)
+status_t CameraDriver::setFrameInfo(FrameInfo *fi, int width, int height, int frameRate)
 {
     if(width > fi->maxWidth || width <= 0)
         width = fi->maxWidth;
@@ -1086,27 +1095,29 @@ status_t CameraDriver::setFrameInfo(FrameInfo *fi, int width, int height)
     fi->height = height;
     fi->padding = paddingWidth(mFormat, width, height);
     fi->size = frameSize(mFormat, fi->padding, height);
-    LOG1("width(%d), height(%d), pad_width(%d), size(%d)",
-         width, height, fi->padding, fi->size);
+    fi->fps = frameRate;
+    LOG1("width(%d), height(%d), pad_width(%d), size(%d) FPS(%d)",
+         width, height, fi->padding, fi->size, fi->fps);
+
     return NO_ERROR;
 }
 
-status_t CameraDriver::setPreviewFrameSize(int width, int height)
+status_t CameraDriver::setPreviewFrameSize(int width, int height, int frameRate)
 {
     LOG1("@%s", __FUNCTION__);
-    return setFrameInfo(&mConfig.preview, width, height);
+    return setFrameInfo(&mConfig.preview, width, height, frameRate);
 }
 
 status_t CameraDriver::setPostviewFrameSize(int width, int height)
 {
     LOG1("@%s", __FUNCTION__);
-    return setFrameInfo(&mConfig.postview, width, height);
+    return setFrameInfo(&mConfig.postview, width, height, 0);
 }
 
 status_t CameraDriver::setSnapshotFrameSize(int width, int height)
 {
     LOG1("@%s", __FUNCTION__);
-    return setFrameInfo(&mConfig.snapshot, width, height);
+    return setFrameInfo(&mConfig.postview, width, height, 0);
 }
 
 void CameraDriver::getVideoSize(int *width, int *height)
@@ -1135,7 +1146,7 @@ status_t CameraDriver::setVideoFrameSize(int width, int height)
     }
     mConfig.recording.width = width;
     mConfig.recording.height= height;
-    return setFrameInfo(&mConfig.snapshot, width, height);
+    return setFrameInfo(&mConfig.postview, width, height, 0);
 }
 
 void CameraDriver::computeZoomRatios(char *zoom_ratio, int max_count){
@@ -1156,6 +1167,27 @@ void CameraDriver::computeZoomRatios(char *zoom_ratio, int max_count){
     //Overwrite the last ',' with '\0'
     if (pos > 0)
         *(zoom_ratio + pos -1 ) = '\0';
+}
+
+int CameraDriver::v4l2_capture_s_framerate(Mode deviceMode, int fps)
+{
+    LOG1("@%s", __FUNCTION__);
+    struct v4l2_streamparm parm;
+
+    parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    parm.parm.capture.capturemode = deviceMode;
+    parm.parm.capture.timeperframe.numerator = 1;
+    parm.parm.capture.timeperframe.denominator = fps;
+    LOGE(" %s set the fps of camID %d fd %d to %d(fps).\n ", __FUNCTION__, mCameraId, mCameraSensor[mCameraId]->fd, fps);
+    /* retry once in case of uvc probe failure */
+    if (ioctl(mCameraSensor[mCameraId]->fd, VIDIOC_S_PARM, &parm) < 0) {
+        if (ioctl(mCameraSensor[mCameraId]->fd, VIDIOC_S_PARM, &parm) < 0) {
+            ALOGE("error %s", strerror(errno));
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 void CameraDriver::setBufferAllocator(ICameraBufferAllocator* alloc)

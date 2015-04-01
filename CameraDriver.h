@@ -148,7 +148,7 @@ public:
     bool dataAvailable();
     bool isBufferValid(const CameraBuffer * buffer) const;
 
-    status_t setPreviewFrameSize(int width, int height);
+    status_t setPreviewFrameSize(int width, int height, int frameRate);
     status_t setPostviewFrameSize(int width, int height);
     status_t setSnapshotFrameSize(int width, int height);
     status_t setVideoFrameSize(int width, int height);
@@ -215,6 +215,7 @@ private:
         int maxWidth;   // Frame maximum width
         int maxHeight;  // Frame maximum height
         int size;       // Frame size in bytes
+        int fps;        // FrameRate
     };
 
     struct Config {
@@ -292,7 +293,7 @@ private:
     // Open, Close, Configure methods
     int openDevice();
     void closeDevice();
-    int configureDevice(Mode deviceMode, int w, int h, int numBuffers,RenderTarget **all_targets,int targetBufNum);
+    int configureDevice(Mode deviceMode, int w, int h, int fps, int numBuffers,RenderTarget **all_targets,int targetBufNum);
     int deconfigureDevice();
     int startDevice();
     void stopDevice();
@@ -317,10 +318,11 @@ private:
     int v4l2_capture_try_format(int fd, int *w, int *h);
     int v4l2_capture_g_framerate(int fd, float * framerate, int width, int height);
     int v4l2_capture_s_format(int fd, int w, int h);
+    int v4l2_capture_s_framerate(Mode devicemode, int fps);
     int set_attribute (int fd, int attribute_num,
                                const int value, const char *name);
     int set_zoom (int fd, int zoom);
-    status_t setFrameInfo(FrameInfo *fi, int width, int height);
+    status_t setFrameInfo(FrameInfo *fi, int width, int height, int frameRate);
     status_t setPowerLineFrequency(PowerLineFrequency frequency);
 
 

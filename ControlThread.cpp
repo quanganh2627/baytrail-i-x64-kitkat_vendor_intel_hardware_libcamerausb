@@ -812,6 +812,7 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     int videoWidth = 0;
     int videoHeight = 0;
     int videoFormat;
+    int frameRate = 0;
     State state;
     CameraDriver::Mode mode;
 
@@ -839,7 +840,8 @@ status_t ControlThread::startPreviewCore(bool videoMode)
     driverWidth = previewWidth;
     driverHeight = previewHeight;
 
-    mDriver->setPreviewFrameSize(driverWidth, driverHeight);
+    frameRate = mParameters.getPreviewFrameRate();
+    mDriver->setPreviewFrameSize(driverWidth, driverHeight, frameRate);
     mPreviewThread->setPreviewConfig(previewWidth, previewHeight, mDecoderedFormat, previewFormat);
     // set video frame config
     if (videoMode) {
@@ -2183,12 +2185,15 @@ status_t ControlThread::processStaticParameters(const CameraParameters *oldParam
     int oldHeight, newHeight;
     int previewWidth, previewHeight;
     int oldFormat, newFormat;
+    int oldFps, newFps;
 
     // see if preview params have changed
     newParams->getPreviewSize(&newWidth, &newHeight);
     oldParams->getPreviewSize(&oldWidth, &oldHeight);
     newFormat = V4L2Format(newParams->getPreviewFormat());
     oldFormat = V4L2Format(oldParams->getPreviewFormat());
+    oldFps = oldParams->getPreviewFrameRate();
+    newFps = newParams->getPreviewFrameRate();
     previewWidth = oldWidth;
     previewHeight = oldHeight;
     if (newWidth != oldWidth || newHeight != oldHeight ||
@@ -2235,6 +2240,11 @@ status_t ControlThread::processStaticParameters(const CameraParameters *oldParam
         LOG1("Video size is unchanged: old=%dx%d; ratio=%.3f",
                 oldWidth, oldHeight,
                 videoAspectRatio);
+    }
+
+if (oldFps != newFps) {
+        LOG1("FrameRate is changed, old = %d, new = %d.\n", oldFps, newFps);
+         previewFormatChanged = true;
     }
 
     // if preview is running and static params have changed, then we need
