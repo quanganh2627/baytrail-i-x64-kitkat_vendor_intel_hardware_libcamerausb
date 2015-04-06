@@ -87,6 +87,10 @@ ControlThread::ControlThread(int cameraId) :
 
     mPipeThread->setThreads(mPreviewThread, mVideoThread);
 
+    mDriver->getPictureMode(&mPictureMode);
+    mPreviewThread->setPictureMode(mPictureMode);
+    mVideoThread->setPictureMode(mPictureMode);
+
     mStatus = mPreviewThread->run();
     if (mStatus != NO_ERROR) {
         ALOGE("Error starting preview thread!");
@@ -2550,7 +2554,153 @@ CameraBuffer* ControlThread::findGraBuffer(void *findMe)
     return 0;
 }
 
-status_t ControlThread::dequeuePreview()
+status_t ControlThread::dequeuePreviewYuyv()
+{
+    LOG1("@%s", __FUNCTION__);
+    CameraBuffer* driverbuff = NULL;
+    CameraBuffer* yuvbuff = NULL;
+    status_t status = NO_ERROR;
+
+    /*yuvbuff = getFreeGraBuffer(YUV422H_FOR_JPEG);
+    if(yuvbuff  == NULL)
+    {
+       ALOGE("get yuv422 buffer failed");
+       return -1;
+    }*/
+    status = mDriver->getPreviewFrame(&driverbuff,yuvbuff);
+    if((driverbuff == NULL) || status != NO_ERROR)
+    {
+        if(driverbuff !=NULL)
+        {
+            driverbuff->setOwner(this);
+            driverbuff->mType = BUFFER_TYPE_PREVIEW;
+            returnBuffer(driverbuff);
+        }
+        /* if(yuvbuff != NULL)
+        {
+            yuvbuff->setOwner(this);
+            returnBuffer(yuvbuff);
+        }*/
+        return status;
+    }
+    driverbuff->setOwner(this);
+    driverbuff->mType = BUFFER_TYPE_PREVIEW;
+    /*if(mState != STATE_CAPTURE || !mJpegFromDriver)
+    {
+        returnBuffer(driverbuff);
+    }*/
+    if (status == NO_ERROR) {
+        // yuvbuff->setOwner(this);
+        CameraBuffer *convBuff = getFreeBuffer();
+
+        if (convBuff == 0) {
+            ALOGE("No intermediate buffers left");
+            status = NO_MEMORY;
+            returnBuffer(driverbuff);
+            return status;
+        } else {
+            status = mPipeThread->preview(driverbuff, convBuff,mCallbackMidBuff);
+            if(mState == STATE_CAPTURE) {
+                /*if(mJpegFromDriver) {
+                   if (mThumbSupported && postviewBuffer != NULL) {
+                       status = mPictureThread->encode(driverbuff, yuvbuff, postviewBuffer);
+                   } else {
+                       status = mPictureThread->encode(driverbuff, yuvbuff);
+                   }
+                } else { */
+                   if (mThumbSupported && postviewBuffer != NULL) {
+                       status = mPictureThread->encode(driverbuff,interBuff, postviewBuffer);
+                   } else {
+                       status = mPictureThread->encode(driverbuff,interBuff);
+                   }
+                //}
+                mState = STATE_PREVIEW_STILL;
+            }
+        }
+    } else {
+        ALOGE("Error gettting preview frame from driver");
+    }
+    return status;
+}
+status_t ControlThread::dequeueRecordingYuyv()
+{
+    LOG1("@%s,mState is:%d", __FUNCTION__, mState);
+    CameraBuffer* driverbuff;
+    CameraBuffer* yuvbuff;
+    nsecs_t timestamp;
+    status_t status = NO_ERROR;
+
+    /*yuvbuff = getFreeGraBuffer(YUV422H_FOR_JPEG);
+    if(yuvbuff == NULL)
+    {
+        ALOGE("get free buffer yuv422h failed");
+        return -1;
+    }*/
+
+    status = mDriver->getRecordingFrame(&driverbuff,yuvbuff, &timestamp);
+    if((driverbuff == NULL) || status != NO_ERROR)
+    {
+        if(driverbuff !=NULL)
+        {
+            driverbuff->setOwner(this);
+            driverbuff->mType = BUFFER_TYPE_VIDEO;
+            returnBuffer(driverbuff);
+        }
+        /* if(yuvbuff != NULL)
+        {
+            yuvbuff->setOwner(this);
+            returnBuffer(yuvbuff);
+        }*/
+        return status;
+    }
+    driverbuff->setOwner(this);
+    driverbuff->mType = BUFFER_TYPE_VIDEO;
+    /*if(mState != STATE_CAPTURE)
+    {
+       returnBuffer(driverbuff);
+    }*/
+    if (status == NO_ERROR) {
+        // yuvbuff->setOwner(this);
+
+        //the convBuff is for Android usage
+        CameraBuffer *convBuff = getFreeBuffer();
+        if (convBuff == 0) {
+            ALOGE("No intermediate buffers left");
+            status = NO_MEMORY;
+            returnBuffer(driverbuff);
+            return status;
+        }
+        if(mState == STATE_CAPTURE) {
+            mLastRecordingBuff = driverbuff;
+            //mLastRecordJpegBuff = driverbuff;
+        }
+        // See if recording has started.
+        // If it has, process the buffer
+        // If it hasn't, do preview only
+
+        if (mState == STATE_RECORDING) {
+            CameraBuffer *vppBuff;
+            vppBuff = getFreeGraBuffer(NV12_FOR_VIDEO);
+            if (vppBuff == 0) {
+               ALOGE("No NV12 buffers left");
+               status = NO_MEMORY;
+               returnBuffer(driverbuff);
+               returnBuffer(convBuff);
+               return status;
+           }
+            vppBuff->setOwner(this);
+            status = mPipeThread->previewVideo(driverbuff, vppBuff,convBuff,mCallbackMidBuff,timestamp);
+        } else {
+            status = mPipeThread->preview(driverbuff, convBuff,mCallbackMidBuff);
+        }
+    } else {
+        ALOGE("Error: getting recording from driver\n");
+    }
+
+    return status;
+}
+
+status_t ControlThread::dequeuePreviewMjpeg()
 {
     LOG1("@%s", __FUNCTION__);
     CameraBuffer* driverbuff = NULL;
@@ -2619,7 +2769,7 @@ status_t ControlThread::dequeuePreview()
     return status;
 }
 
-status_t ControlThread::dequeueRecording()
+status_t ControlThread::dequeueRecordingMjpeg()
 {
     LOG1("@%s,mState is:%d", __FUNCTION__, mState);
     CameraBuffer* driverbuff;
@@ -2721,10 +2871,15 @@ bool ControlThread::threadLoop()
                 status = waitForAndExecuteMessage();
             } else {
                 // make sure driver has data before we ask for some
-                if (mDriver->dataAvailable())
-                    status = dequeuePreview();
-                else
+                if (mDriver->dataAvailable()) {
+		    if (mPictureMode) {
+                        status = dequeuePreviewMjpeg();
+                    } else {
+			status = dequeuePreviewYuyv();
+		    }
+	         } else {
                     status = waitForAndExecuteMessage();
+		 }
             }
 	    break;
 
@@ -2739,7 +2894,11 @@ bool ControlThread::threadLoop()
 
                 // make sure driver has data before we ask for some
                 if (mDriver->dataAvailable()) {
-                    status = dequeueRecording();
+		    if (mPictureMode) {
+                        status = dequeueRecordingMjpeg();
+		    } else {
+			status = dequeueRecordingYuyv();
+		    }
                 } else {
                     status = waitForAndExecuteMessage();
                 }
@@ -2757,10 +2916,15 @@ bool ControlThread::threadLoop()
                 status = waitForAndExecuteMessage();
             } else {
                 // make sure driver has data before we ask for some
-                if (mDriver->dataAvailable())
-                    status = dequeuePreview();
-                else
+                if (mDriver->dataAvailable()) {
+		    if (mPictureMode) {
+                        status = dequeuePreviewMjpeg();
+		    } else {
+			status = dequeuePreviewYuyv();
+		    }
+	        } else {
                     status = waitForAndExecuteMessage();
+		}
             }
             break;
         default:

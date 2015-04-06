@@ -44,6 +44,7 @@ public:
 // public methods
 public:
 
+    void setPictureMode (bool mode);
     status_t preview(CameraBuffer *inputBuff, CameraBuffer *outputBuff,CameraBuffer *midConvert);
     status_t setPreviewWindow(struct preview_stream_ops *window);
     status_t setPreviewConfig(int preview_width, int preview_height, int input_format, int output_format);
@@ -142,6 +143,7 @@ private:
     int mGFXHALPixelFormat;
 
     VAConvertor *mVaConvertor;
+    bool mPictureMode;
 
 }; // class PreviewThread
 

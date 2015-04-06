@@ -92,6 +92,71 @@ void YUYVToNV12(int width, int height, void *src, void *dst)
     }
 }
 
+/*
+convert YUV422H to NV12, the yuv422h is placed as Y(stride * alignheight),U(stride * alignheight),V(stride * alignheight)
+the valid data for U/V is width/2 * alignheight
+width: dst image width
+height: dst image height
+stride: stride for src image
+alignheight: aligned height for src image
+*/
+void YUYVToNV12_withStride(int width, int height, void *src, void *dst)
+{
+    unsigned char *pSrcY = (unsigned char *) src;
+    unsigned char *pSrcU = pSrcY + 1;
+    unsigned char *pSrcV = pSrcY + 3;
+
+    unsigned char *pDstY = (unsigned char *)dst;
+
+    int stride = ALIGN(width, 128);
+    int alignedheight = ALIGN(height, 32);
+    unsigned char *pDstUV = pDstY + stride * alignedheight;
+
+    // YUYV format is: yuyvyuyvyuyv...yuyv
+    // NV12 format is: yyyy...yyyyuvuv...uvuvuv
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width / 2; j++) { // 2 y-pixels at a time
+            *pDstY++ = *pSrcY;
+            pSrcY += 2;
+            *pDstY++ = *pSrcY;
+            pSrcY += 2;
+
+            // 4:2:2 chroma has 1/2 the horizontal and FULL vertical resolution of full image
+            // 4:2:0 chroma has 1/2 the horizontal and 1/2 vertical resolution of full image
+            // so skip odd numbered rows
+            if ((i % 2) == 0) {
+                *pDstUV++ = *pSrcU;
+                *pDstUV++ = *pSrcV;
+            }
+            pSrcU += 4;
+            pSrcV += 4;
+        }
+        pDstY += (stride-width);
+        if ((i % 2) == 0){
+            pDstUV += (stride - width);
+        }
+    }
+}
+
+/*
+yuyv copy should be consider pixel alignment
+src is consequent by width*height
+Dst should be aligned according stride
+*/
+void copyYUYV_withStride(int stride, int width, int height, void *src, void *dst)
+{
+    unsigned char *pSrc = (unsigned char *) src;
+    unsigned char *pDst = (unsigned char *) dst;
+
+    ALOGV(":%s: stride, width, height = (%d, %d, %d)", __FUNCTION__, stride, width, height);
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width*2; j++) {//yuyv 1 pixel = 2 bytes
+            *pDst++ = *pSrc++;
+        }
+        pDst += (stride-width)*2;//pixel should be alighed
+    }
+}
+
 void YUYVToRGB8888(int width, int height, void *src, void *dst)
 {
     int len = width * height * 2;
@@ -804,7 +869,7 @@ static status_t colorConvertYUYV(int dstFormat, int width, int height, void *src
 {
     switch (dstFormat) {
     case V4L2_PIX_FMT_NV12:
-        YUYVToNV12(width, height, src, dst);
+	YUYVToNV12_withStride(width, height, src, dst);
         break;
     case V4L2_PIX_FMT_NV21:
         YUYVToNV21(width, height, src, dst);

@@ -37,6 +37,7 @@ int V4L2ToLumaBitsPerPixel(int format);
 int V4L2FormatToHalPixel(int format);
 int HalPixelToV4L2Format(int format);
 
+void copyYUYV_withStride(int stride, int width, int height, void *src, void *dst);//add to enable yuyv copy with stride
 
 }; // namespace android
 

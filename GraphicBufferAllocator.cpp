@@ -110,6 +110,9 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
        gcamBuff->mType = BUFFER_TYPE_JPEGDEC;
     }
 
+    alignedheight = ALIGN(height,32);//changed to aligned by 32
+    //alignedheight = ((height == 120) ||(height == 360) ||(height == 600) ||(height == 1080) ||(height == 1944))? ALIGN(height,32): height;
+
     res = mGrAllocDev->alloc(mGrAllocDev, width, height,
             HalFormat,
             GRALLOC_USAGE_HW_RENDER,
@@ -138,7 +141,8 @@ status_t CamGraphicBufferAllocator::allocate(CameraBuffer * gcamBuff,int width, 
     gcamBuff->mStride = pGrallocHandle->pitch;
     if((HalFormat == HAL_PIXEL_FORMAT_YV12) || (HalFormat == HAL_PIXEL_FORMAT_NV12_TILED_INTEL))
     {
-         gcamBuff->mGraBuffSize = gcamBuff->mStride * height *3/2;
+         //gcamBuff->mGraBuffSize = gcamBuff->mStride * height *3/2;
+         gcamBuff->mGraBuffSize = gcamBuff->mStride * alignedheight *3/2;//compute mGraBuffSize by alignedheight
     }
     else if((HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_H_INTEL) ||(HalFormat == HAL_PIXEL_FORMAT_YCbCr_422_I))
     {

@@ -46,6 +46,11 @@ VideoThread::~VideoThread()
         mCallbacks.clear();
 }
 
+void VideoThread::setPictureMode(bool mode)
+{
+    mPictureMode = mode;
+}
+
 status_t VideoThread::setConfig(int inputFormat, int outputFormat, int width, int height)
 {
     mInputFormat = inputFormat;
@@ -98,13 +103,22 @@ status_t VideoThread::handleMessageExit()
 status_t VideoThread::handleMessageVideo(MessageVideo *msg)
 {
     LOG2("@%s", __FUNCTION__);
+    void *srcaddr[3];
+    int size = 0;
     status_t status = NO_ERROR;
     if((msg->yuv422hbuff == NULL) || (msg->nv12buff == NULL))
     {
         ALOGE("yuv422hbuff or nv12buff is NULL!");
         return UNKNOWN_ERROR;
     }
-    mVaConvertor->VPPBitBlit(msg->yuv422hbuff->GetRenderTargetHandle(),msg->nv12buff->GetRenderTargetHandle());
+
+    if(mPictureMode) {
+        mVaConvertor->VPPBitBlit(msg->yuv422hbuff->GetRenderTargetHandle(),msg->nv12buff->GetRenderTargetHandle());
+    } else {
+        msg->nv12buff->LockGrallocData((void**)&srcaddr,&size);
+        colorConvert(V4L2_PIX_FMT_YUYV, V4L2_PIX_FMT_NV12,mWidth, mHeight,msg->yuv422hbuff->getData(), srcaddr[0]);
+        msg->nv12buff->UnLockGrallocData();
+    }
     mCallbacks->videoFrameDone(msg->nv12buff, msg->timestamp);
     if (msg->yuv422hbuff != 0)
         msg->yuv422hbuff->decrementProcessor();

@@ -42,6 +42,7 @@ public:
 // public methods
 public:
 
+    void setPictureMode(bool mode);
     status_t setConfig(int inputFormat, int outputFormat, int width, int height);
 
     // Input and output buffer supplied only if color conversion is required.
@@ -114,6 +115,7 @@ private:
     int mHeight;
 
     VAConvertor *mVaConvertor;
+    bool mPictureMode;
 
 }; // class VideoThread
 

@@ -263,8 +263,10 @@ private:
     CameraBuffer* findGraBuffer(void *findMe);
 
     // dequeue buffers from driver and deliver them
-    status_t dequeuePreview();
-    status_t dequeueRecording();
+    status_t dequeuePreviewMjpeg();
+    status_t dequeueRecordingMjpeg();
+    status_t dequeuePreviewYuyv();
+    status_t dequeueRecordingYuyv();
 
     // parameters handling functions
     bool isParameterSet(const char* param);
@@ -406,6 +408,7 @@ private:
     int driverHeight;//the actual height from camera module
     bool mJpegFromDriver;  //whether get jpeg file from driver for jpeg encoder
     bool mRestartdevice;  //whether need to restart the device when picture size changed
+    bool mPictureMode;
 
     status_t mStatus;
 

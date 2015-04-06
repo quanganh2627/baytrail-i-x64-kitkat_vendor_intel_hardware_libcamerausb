@@ -76,6 +76,11 @@ status_t PreviewThread::setPreviewConfig(int preview_width, int preview_height,
     return mMessageQueue.send(&msg);
 }
 
+void PreviewThread::setPictureMode(bool mode)
+{
+    mPictureMode = mode;
+}
+
 status_t PreviewThread::preview(CameraBuffer *inputBuff, CameraBuffer *outputBuff,CameraBuffer *midConvert)
 {
     LOG2("@%s", __FUNCTION__);
@@ -120,9 +125,11 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
     LOG2("@%s", __FUNCTION__);
     status_t status = NO_ERROR;
 
-    LOG2("Buff: id = %d, data = %p",
+    if (!mPictureMode) {
+        LOG2("Buff: id = %d, data = %p",
             msg->inputBuff->getID(),
             msg->inputBuff->getData());
+    }
 
     if (mPreviewWindow != 0) {
         buffer_handle_t *buf = NULL;
@@ -149,10 +156,15 @@ status_t PreviewThread::handleMessagePreview(MessagePreview *msg)
                 goto exit;
             }
             LOG1("Preview Color Conversion to YUY2, stride: %d height: %d", stride, mPreviewHeight);
-            RenderTarget previewRT;
-            memset((void*)&previewRT,0,sizeof(RenderTarget));
-            mVaConvertor->ConfigBuffer(&previewRT,*buf,mPreviewWidth,mPreviewHeight,mGFXHALPixelFormat);
-            mVaConvertor->VPPBitBlit(msg->inputBuff->GetRenderTargetHandle(),&previewRT);
+            if(mPictureMode) {
+                RenderTarget previewRT;
+                memset((void*)&previewRT,0,sizeof(RenderTarget));
+                mVaConvertor->ConfigBuffer(&previewRT,*buf,mPreviewWidth,mPreviewHeight,mGFXHALPixelFormat);
+                mVaConvertor->VPPBitBlit(msg->inputBuff->GetRenderTargetHandle(),&previewRT);
+            } else {
+                //colorConvert(V4L2_PIX_FMT_YUYV, V4L2_PIX_FMT_YUYV, mPreviewWidth, mPreviewHeight,msg->inputBuff->getData(), dst);
+                copyYUYV_withStride(stride,mPreviewWidth, mPreviewHeight, msg->inputBuff->getData(), dst);
+            }
             if ((err = mPreviewWindow->enqueue_buffer(mPreviewWindow, buf)) != 0) {
                 ALOGE("Surface::queueBuffer returned error %d", err);
             }

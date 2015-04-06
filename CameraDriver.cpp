@@ -124,6 +124,11 @@ CameraDriver::~CameraDriver()
         mCallbacks.clear();
 }
 
+void CameraDriver::getPictureMode(bool *mode)
+{
+    *mode = mPictureMode;
+}
+
 void CameraDriver::getDefaultParameters(CameraParameters *params)
 {
     LOG2("@%s", __FUNCTION__);
@@ -698,7 +703,7 @@ status_t CameraDriver::allocateBuffer(int fd, int index, int w, int h, int forma
     mBufAlloc->allocateMemory(camBuf, vbuf->length, mCallbacks.get(), w, h, format);
     camBuf->mID = index;
     vbuf->m.userptr = (unsigned int) camBuf->getData();
-    LOG1("alloc mem addr=%p, index=%d size=%d", camBuf->getData(), index, vbuf->length);
+    LOG1("alloc camera%d mem addr=%p, index=%d size=%d", mCameraId, camBuf->getData(), index, vbuf->length);
 
     return NO_ERROR;
 }
@@ -819,7 +824,6 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
     int ret;
     int fd = mCameraSensor[mCameraId]->fd;
     struct v4l2_buffer vbuff;
-    RenderTarget *cur_target = yuvbuff->mDecTargetBuf;
 
     vbuff.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     vbuff.memory = V4L2_MEMORY_USERPTR;
@@ -841,6 +845,7 @@ status_t CameraDriver::dequeueBuffer(CameraBuffer **driverbuff, CameraBuffer *yu
     mBufferPool.numBuffersQueued--;
 
     if(mJpegDecoder) {
+        RenderTarget *cur_target = yuvbuff->mDecTargetBuf;
         void * pSrc = camBuff->getData();
         camBuff->mSize = vbuff.bytesused;
         int len = vbuff.bytesused;
@@ -939,7 +944,11 @@ void CameraDriver::detectDeviceResolutions()
     std::set<String8> vidmodes;
     for(int fmt=0; fmt<2; fmt++) {
         // Test YUYV modes first, then MJPEG if it's better
-        int pixfmt = fmt == 0 ? mFormat : V4L2_PIX_FMT_MJPEG;
+        #ifdef YUYV_FMT_ENABLED
+            int pixfmt = V4L2_PIX_FMT_YUYV;
+        #else
+            int pixfmt = fmt == 0 ? mFormat : V4L2_PIX_FMT_MJPEG;
+        #endif
         for(int i=0; /**/; i++) {
             struct v4l2_frmsizeenum fs;
             fs.index = i;
@@ -984,6 +993,7 @@ void CameraDriver::detectDeviceResolutions()
                     break;
                 double hz = fi.discrete.denominator / (double)fi.discrete.numerator;
                 if (pixfmt == V4L2_PIX_FMT_MJPEG){
+                    mPictureMode = true;
                     mJpegModes.insert(sz);
                     LOG2("@%s, line:%d, mJpegModes insert sz:%s", __FUNCTION__, __LINE__, sz.string());
                 }
@@ -1582,6 +1592,7 @@ int CameraDriver::enumerateCameras(){
     int terminated = 0;
     static struct CameraSensor *newDev;
     int claimed;
+
     LOG1("@%s", __FUNCTION__);
 
     Mutex::Autolock _l(mCameraSensorLock);
@@ -1678,7 +1689,6 @@ int CameraDriver::enumerateCameras(){
     }
 
     return numCameras;
-
 abort:
     ALOGE("%s: Terminate camera enumeration !!", __FUNCTION__);
     cleanupCameras();

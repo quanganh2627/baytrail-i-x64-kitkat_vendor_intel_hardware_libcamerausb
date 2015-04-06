@@ -124,6 +124,8 @@ public:
 // public methods
 public:
 
+    void getPictureMode(bool *mode);
+
     void getDefaultParameters(CameraParameters *params);
 
     status_t start(Mode mode,RenderTarget **all_targets,int targetBufNum);
@@ -366,6 +368,8 @@ private:
     int mExpBias;
 
     status_t mStatus;
+
+    bool mPictureMode;
 }; // class CameraDriver
 
 }; // namespace android

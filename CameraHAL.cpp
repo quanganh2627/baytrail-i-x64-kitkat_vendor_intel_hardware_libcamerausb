@@ -53,7 +53,7 @@ static int CAMERA_GetCameraInfo(int camera_id,
 ///////////////////////////////////////////////////////////////////////////////
 
 
-static camera_hal camera_instance;
+static camera_hal camera_instance[4];
 static int num_camera_instances = 0;
 static Mutex camera_instance_lock; // for locking num_camera_instances only
 
@@ -346,24 +346,20 @@ static int CAMERA_OpenCameraHardware(const hw_module_t* module, const char* name
 
     camera_device_t *camera_dev;
 
-    if (num_camera_instances > 0) {
-        ALOGE("error: we only support a single instance");
+    if (num_camera_instances > 4) {
+        ALOGE("error: we only support maximum of 4 instances");
         return -EINVAL;
     }
 
-    camera_instance.camera_id = atoi(name);
-    camera_instance.control_thread = new ControlThread(camera_instance.camera_id);
+    int cameraId = atoi(name);
 
-    if (camera_instance.control_thread->getStatus() != NO_ERROR) {
-	ALOGE("Camera Driver initialization failed!");
-	return NO_INIT;
-    }
-
-    if (camera_instance.control_thread == NULL) {
+    camera_instance[cameraId].camera_id = cameraId;
+    camera_instance[cameraId].control_thread = new ControlThread(camera_instance[cameraId].camera_id);
+    if (camera_instance[cameraId].control_thread == NULL) {
         ALOGE("Memory allocation error!");
         return NO_MEMORY;
     }
-    camera_instance.control_thread->run();
+    camera_instance[cameraId].control_thread->run();
 
     camera_dev = (camera_device_t*)malloc(sizeof(*camera_dev));
     if(camera_dev == NULL)
@@ -377,7 +373,7 @@ static int CAMERA_OpenCameraHardware(const hw_module_t* module, const char* name
     camera_dev->common.module = (hw_module_t *)(module);
     camera_dev->common.close = CAMERA_CloseCameraHardware;
     camera_dev->ops = &camera_ops;
-    camera_dev->priv = &camera_instance;
+    camera_dev->priv = &camera_instance[cameraId];
 
     *device = &camera_dev->common;
 
