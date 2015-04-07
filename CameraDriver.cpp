@@ -1117,7 +1117,7 @@ status_t CameraDriver::setPostviewFrameSize(int width, int height)
 status_t CameraDriver::setSnapshotFrameSize(int width, int height)
 {
     LOG1("@%s", __FUNCTION__);
-    return setFrameInfo(&mConfig.postview, width, height, 0);
+    return setFrameInfo(&mConfig.snapshot, width, height, 0);
 }
 
 void CameraDriver::getVideoSize(int *width, int *height)
@@ -1146,7 +1146,7 @@ status_t CameraDriver::setVideoFrameSize(int width, int height)
     }
     mConfig.recording.width = width;
     mConfig.recording.height= height;
-    return setFrameInfo(&mConfig.postview, width, height, 0);
+    return setFrameInfo(&mConfig.recording, width, height, 0);
 }
 
 void CameraDriver::computeZoomRatios(char *zoom_ratio, int max_count){
