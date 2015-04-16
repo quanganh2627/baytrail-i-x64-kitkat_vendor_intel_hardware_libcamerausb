@@ -2362,7 +2362,7 @@ status_t ControlThread::handleMessageStoreMetaData(MessageStoreMetaData* msg)
 //    mDriver->storeMetaDataInBuffers(mStoreMetaDataInVideoBuffers);
     mCallbacks->storeMetaDataInBuffers(mStoreMetaDataInVideoBuffers);
     //if recording already started, then we have to restart.
-    if (mState == STATE_PREVIEW_VIDEO || mState == STATE_RECORDING) {
+    if (mState == STATE_RECORDING) {
         State orig_state = mState;
         status = restartPreview(true);
         mState =orig_state;
