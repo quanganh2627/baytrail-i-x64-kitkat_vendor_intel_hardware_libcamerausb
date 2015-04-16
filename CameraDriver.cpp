@@ -147,7 +147,7 @@ void CameraDriver::getDefaultParameters(CameraParameters *params)
     params->set(CameraParameters::KEY_PREVIEW_SIZE, mBestVidSize.string());
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES, mVidSizes.string());
     params->set(CameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO, mBestVidSize.string());
-    params->setPreviewFrameRate(30);
+    params->setPreviewFrameRate(0);
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FRAME_RATES,"5,10,15,20,25,30"); // TODO: consider which FPS to support
     params->set(CameraParameters::KEY_PREVIEW_FPS_RANGE,"7500,30000");
     params->set(CameraParameters::KEY_SUPPORTED_PREVIEW_FPS_RANGE,"(7500,30000)");
