@@ -53,7 +53,8 @@ static int CAMERA_GetCameraInfo(int camera_id,
 ///////////////////////////////////////////////////////////////////////////////
 
 
-static camera_hal camera_instance[4];
+#define MAX_NUM_CAMERAS 4
+static camera_hal camera_instance[MAX_NUM_CAMERAS];
 static int num_camera_instances = 0;
 static Mutex camera_instance_lock; // for locking num_camera_instances only
 
@@ -350,8 +351,12 @@ static int CAMERA_OpenCameraHardware(const hw_module_t* module, const char* name
         ALOGE("error: we only support maximum of 4 instances");
         return -EINVAL;
     }
-
     int cameraId = atoi(name);
+
+    if (cameraId < 0 || cameraId >= MAX_NUM_CAMERAS) {
+        ALOGE("error: illegal cameraId got");
+        return -EINVAL;
+    }
 
     camera_instance[cameraId].camera_id = cameraId;
     camera_instance[cameraId].control_thread = new ControlThread(camera_instance[cameraId].camera_id);

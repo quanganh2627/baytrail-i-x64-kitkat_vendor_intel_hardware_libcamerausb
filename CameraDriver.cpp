@@ -1625,7 +1625,7 @@ int CameraDriver::enumerateCameras(){
     static struct CameraSensor *newDev;
     int claimed;
     int fd;
-    char devName[13];
+    char devName[32];
     int realNumOfCamera = 0;
 
     LOG1("@%s", __FUNCTION__);

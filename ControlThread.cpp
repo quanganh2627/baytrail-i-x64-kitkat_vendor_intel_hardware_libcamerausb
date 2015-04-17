@@ -2568,7 +2568,6 @@ status_t ControlThread::dequeuePreviewYuyv()
 {
     LOG1("@%s", __FUNCTION__);
     CameraBuffer* driverbuff = NULL;
-    CameraBuffer* yuvbuff = NULL;
     status_t status = NO_ERROR;
 
     /*yuvbuff = getFreeGraBuffer(YUV422H_FOR_JPEG);
@@ -2577,7 +2576,7 @@ status_t ControlThread::dequeuePreviewYuyv()
        ALOGE("get yuv422 buffer failed");
        return -1;
     }*/
-    status = mDriver->getPreviewFrame(&driverbuff,yuvbuff);
+    status = mDriver->getPreviewFrame(&driverbuff,NULL);
     if((driverbuff == NULL) || status != NO_ERROR)
     {
         if(driverbuff !=NULL)
@@ -2635,8 +2634,7 @@ status_t ControlThread::dequeuePreviewYuyv()
 status_t ControlThread::dequeueRecordingYuyv()
 {
     LOG1("@%s,mState is:%d", __FUNCTION__, mState);
-    CameraBuffer* driverbuff;
-    CameraBuffer* yuvbuff;
+    CameraBuffer* driverbuff = NULL;
     nsecs_t timestamp;
     status_t status = NO_ERROR;
 
@@ -2647,7 +2645,7 @@ status_t ControlThread::dequeueRecordingYuyv()
         return -1;
     }*/
 
-    status = mDriver->getRecordingFrame(&driverbuff,yuvbuff, &timestamp);
+    status = mDriver->getRecordingFrame(&driverbuff,NULL, &timestamp);
     if((driverbuff == NULL) || status != NO_ERROR)
     {
         if(driverbuff !=NULL)
